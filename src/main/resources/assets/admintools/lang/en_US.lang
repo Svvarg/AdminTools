@@ -6,3 +6,6 @@ mobclear.done=Done. Removed %d mobs
 chestclear.norange=No radius
 chestclear.range100=Max raduis = 100
 chestclear.done=Done. Cleaned %d containers
+
+chunkregen.done=Chunk regeneration done
+chunkregen.error=Error occurred while chunk regeneration!
