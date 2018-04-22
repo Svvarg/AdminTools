@@ -1,0 +1,8 @@
+mobclear.noname=No entity name
+mobclear.norange=No radius
+mobclear.range50=Max raduis = 50
+mobclear.done=Done. Removed %d mobs
+
+chestclear.norange=No radius
+chestclear.range100=Max raduis = 100
+chestclear.done=Done. Cleaned %d containers
