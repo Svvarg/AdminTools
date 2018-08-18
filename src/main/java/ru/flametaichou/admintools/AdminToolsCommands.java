@@ -31,7 +31,7 @@ public class AdminToolsCommands extends CommandBase
     public AdminToolsCommands()
     { 
         aliases = new ArrayList<String>(); 
-        aliases.add("admin");
+        aliases.add("atools");
     } 
   
     @Override
@@ -49,13 +49,13 @@ public class AdminToolsCommands extends CommandBase
     @Override 
     public String getCommandName() 
     { 
-        return "admin";
+        return "atools";
     } 
 
     @Override         
     public String getCommandUsage(ICommandSender var1) 
     { 
-        return "/admin <mobclear/chestclear>";
+        return "/atools <mobclear/chestclear>";
     } 
 
     @Override 
@@ -132,16 +132,18 @@ public class AdminToolsCommands extends CommandBase
                         for (int y = player_y - radius; y <= player_y + radius; y++) {
                             for (int z = player_z - radius; z <= player_z + radius; z++) {
                                 TileEntity te = player.worldObj.getTileEntity(x, y, z);
-                                if (te != null) {
+                                if (te != null && !player.worldObj.getTileEntity(x, y, z).getClass().getName().contains("TileEntityMapFrame")) {
                                     if (te instanceof IInventory) {
                                         IInventory inventory = ((IInventory) te);
                                         boolean flagCleaned = false;
-                                        for (int i = 0; i < inventory.getSizeInventory(); i++) {
-                                            if (!flagCleaned && inventory.getStackInSlot(i) != null) {
-                                                count++;
-                                                flagCleaned = true;
+                                        if (inventory.getSizeInventory() > 1) {
+                                            for (int i = 0; i < inventory.getSizeInventory(); i++) {
+                                                if (!flagCleaned && inventory.getStackInSlot(i) != null) {
+                                                    count++;
+                                                    flagCleaned = true;
+                                                }
+                                                inventory.setInventorySlotContents(i, null);
                                             }
-                                            inventory.setInventorySlotContents(i, null);
                                         }
                                     }
                                 }
