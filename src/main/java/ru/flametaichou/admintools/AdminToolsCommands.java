@@ -1,12 +1,10 @@
 package ru.flametaichou.admintools;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import net.minecraft.block.Block;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
@@ -14,7 +12,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.world.ChunkCoordIntPair;
+import net.minecraft.util.StringUtils;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
@@ -24,9 +22,7 @@ import net.minecraft.world.gen.ChunkProviderServer;
 public class AdminToolsCommands extends CommandBase
 { 
     private final List<String> aliases;
-  
-    protected String fullEntityName; 
-    protected Entity conjuredEntity; 
+    private final static Random random = new Random();
   
     public AdminToolsCommands()
     { 
@@ -202,8 +198,132 @@ public class AdminToolsCommands extends CommandBase
                 }
                 return;
             }
+
+            if (argString[0].equals("story")) {
+
+                WorldServer worldServer = (WorldServer) world;
+
+                sender.addChatMessage(new ChatComponentText(String.format(
+                                "```" +
+                                        getWeatherString(worldServer) + ". " +
+                                        getTimeString(worldServer) + ". " +
+                                        "Вот что случилось за последнее время: " +
+                                        getEventString() +
+                                        "при этом из травмпункта сообщают что " +
+                                        getDeathString() +
+                                        "и никто не знает, что случится в следующую минуту. " +
+                                        "Спасибо что обратились в наш информационный центр, свои предложения вы можете оставить по адресу https://ordinary-minecraft.ru/ " +
+                                        "а вот жалобы лучше не оставляйте нигде. Хорошего вам дня!" +
+                                "```"
+                )));
+                return;
+            }
         }
-    } 
+    }
+
+    public static String getEventString() {
+        String string = "";
+        for (Map.Entry entry : AdminTools.handler.playerMobsMap.entrySet()) {
+            Map<String, Integer> mobsMap = (Map<String, Integer>) entry.getValue();
+            string = string + entry.getKey() + " ";
+            for (Map.Entry mobEntry : mobsMap.entrySet()) {
+                string = string + getRandomKillWord() + " " + mobEntry.getValue() + " " + mobEntry.getKey() + ", ";
+            }
+        }
+        if (StringUtils.isNullOrEmpty(string)) {
+            string = "ничего не случилось, ";
+        }
+        return string;
+    }
+
+    public static String getDeathString() {
+        String string = "";
+        for (Map.Entry entry : AdminTools.handler.deathMap.entrySet()) {
+            string = string + entry.getKey() + " " + getRandomDeathWord() + " " + entry.getValue() + " раз, ";
+        }
+        if (StringUtils.isNullOrEmpty(string)) {
+            string = "никто не умер, ";
+        }
+        return string;
+    }
+
+    public static String getRandomKillWord() {
+        int number = random.nextInt(11);
+        switch (number) {
+            case 0:
+                return "побил";
+            case 1:
+                return "разбил лицо";
+            case 2:
+                return "уничтожил";
+            case 3:
+                return "разобрал на части";
+            case 4:
+                return "разрубил на куски";
+            case 5:
+                return "очистил мир от";
+            case 6:
+                return "решил разобраться с";
+            case 7:
+                return "вступил в пьяную драку с";
+            case 8:
+                return "испепелил взглядом";
+            case 9:
+                return "испачкал меч кровью";
+            case 10:
+                return "пошел в лес и нарубил там";
+            case 11:
+                return "вынес";
+            default:
+                return "убил";
+        }
+    }
+
+    public static String getRandomDeathWord() {
+        int number = random.nextInt(3);
+        switch (number) {
+            case 0:
+                return "помер";
+            case 1:
+                return "распрощался с жизнью";
+            case 2:
+                return "отправился на тот свет";
+            case 3:
+                return "покинул этот мир";
+            default:
+                return "умер";
+        }
+    }
+
+    public static String getTimeString(World world) {
+        return "Текущее время " + addZero(getWorldHours(world)) + ":" + addZero(getWorldMinutes(world));
+    }
+
+    public static String addZero(Integer integer) {
+        String string = String.valueOf(integer);
+        if (string.length() == 1) {
+            string = "0" + string;
+        }
+        return string;
+    }
+
+    public static String getWeatherString(World world) {
+        if (world.isDaytime() && !world.isRaining()) return "На сервере сейчас чудесный солнечный день";
+        if (world.isDaytime() && world.isRaining()) return "Солнце на сервере сейчас прячется за облаками, идет дождь";
+        if (!world.isDaytime() && !world.isRaining()) return "На сервере сейчас звездная ночь";
+        if (!world.isDaytime() && world.isRaining()) return "Ночное небо на сервере сейчас затянуто тучами";
+        return "";
+    }
+
+    public static int getWorldMinutes(World world) {
+        int time = (int) Math.abs((world.getWorldTime() + 6000) % 24000);
+        return (time % 1000) * 6 / 100;
+    }
+
+    public static int getWorldHours(World world) {
+        int time = (int)Math.abs((world.getWorldTime()+ 6000) % 24000);
+        return (int)((float)time / 1000F);
+    }
 
     @Override 
     public boolean canCommandSenderUseCommand(ICommandSender var1) 
