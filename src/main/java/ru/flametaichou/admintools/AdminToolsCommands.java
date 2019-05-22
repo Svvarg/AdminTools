@@ -5,9 +5,15 @@ import java.util.*;
 import net.minecraft.block.Block;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.IInventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentText;
@@ -18,6 +24,7 @@ import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.ChunkProviderServer;
+import org.lwjgl.Sys;
 
 public class AdminToolsCommands extends CommandBase
 { 
@@ -51,7 +58,7 @@ public class AdminToolsCommands extends CommandBase
     @Override         
     public String getCommandUsage(ICommandSender var1) 
     { 
-        return "/atools <mobclear/chestclear>";
+        return "/atools <mobclear/chestclear/restoreplayer/mobfind>";
     } 
 
     @Override 
@@ -66,7 +73,7 @@ public class AdminToolsCommands extends CommandBase
     
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/admin <mobclear (mob, range) / chestclear (range)>"));
+                sender.addChatMessage(new ChatComponentText("/admin <mobclear (mob, range) / chestclear (range) / restoreplayer / mobfind (mob, range)>"));
                 return;
             }
             if (argString[0].equals("mobclear")) {
@@ -100,6 +107,143 @@ public class AdminToolsCommands extends CommandBase
                             }
                         }
                         sender.addChatMessage(new ChatComponentTranslation("mobclear.done", count));
+                    }
+                }
+                return;
+            }
+
+            if (argString[0].equals("mobfind")) {
+                if (sender instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) sender;
+                    if (argString.length < 2) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.noname"));
+                        return;
+                    }
+                    String mobname = argString[1];
+                    if (argString.length < 3) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.norange"));
+                        return;
+                    }
+                    int radius = Integer.parseInt(argString[2]);
+                    if (radius < 1) {
+                        radius = 0;
+                    }
+                    if (radius > 200) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
+                        radius = 200;
+                    }
+                    List e = player.worldObj.getEntitiesWithinAABB(EntityLiving.class, AxisAlignedBB.getBoundingBox(player.posX - radius, player.posY - radius, player.posZ - radius, (player.posX + radius), (player.posY + radius), (player.posZ + radius)));
+                    if (e.size() > 0) {
+                        for (Object obj : e) {
+                            EntityLiving entityLiving = (EntityLiving) obj;
+                            if (entityLiving.getClass().getName().toLowerCase().contains(mobname.toLowerCase())) {
+                                sender.addChatMessage(new ChatComponentTranslation(entityLiving.getClass().getName() + " - x:" + entityLiving.posX + " y:" + entityLiving.posY + " z:" + entityLiving.posZ));
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (argString[0].equals("entityinfo")) {
+                if (sender instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) sender;
+                    if (argString.length < 2) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.norange"));
+                        return;
+                    }
+                    int radius = Integer.parseInt(argString[1]);
+                    if (radius < 1) {
+                        radius = 0;
+                    }
+                    if (radius > 16) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
+                        radius = 16;
+                    }
+                    List e = player.worldObj.getEntitiesWithinAABB(Entity.class, AxisAlignedBB.getBoundingBox(player.posX - radius, player.posY - radius, player.posZ - radius, (player.posX + radius), (player.posY + radius), (player.posZ + radius)));
+                    if (e.size() > 0) {
+                        for (Object obj : e) {
+                            if (obj instanceof EntityPlayer) {
+                                EntityPlayer tempPlayer = (EntityPlayer) obj;
+                                if (tempPlayer.getDisplayName().equals(player.getDisplayName())) {
+                                    continue;
+                                }
+                            }
+                            if (obj instanceof EntityLiving) {
+                                EntityLiving entityLiving = (EntityLiving) obj;
+                                String type = "EntityLiving";
+                                sender.addChatMessage(new ChatComponentTranslation(String.format("EntityInfo: %s (%s) (#%s) Type: %s",
+                                        entityLiving.getCommandSenderName(),
+                                        entityLiving.getCustomNameTag(),
+                                        entityLiving.getEntityId(),
+                                        type)));
+                                sender.addChatMessage(new ChatComponentTranslation("Class: " + entityLiving.getClass().getName() + ", posision x:" + entityLiving.posX + " y:" + entityLiving.posY + " z:" + entityLiving.posZ));
+                                NBTTagCompound nbtData = new NBTTagCompound();
+                                entityLiving.writeEntityToNBT(nbtData);
+                                sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                            } else {
+                                Entity entity = (Entity) obj;
+                                String type = "Entity";
+                                sender.addChatMessage(new ChatComponentTranslation(String.format("EntityInfo: %s (#%s) Type: %s",
+                                        entity.getCommandSenderName(),
+                                        entity.getEntityId(),
+                                        type)));
+                                sender.addChatMessage(new ChatComponentTranslation("Class: " + entity.getClass().getName() + ", posision x:" + entity.posX + " y:" + entity.posY + " z:" + entity.posZ));
+                                NBTTagCompound nbtData = new NBTTagCompound();
+                                entity.writeToNBT(nbtData);
+                                sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (argString[0].equals("tileentityinfo")) {
+                if (sender instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) sender;
+                    if (argString.length < 2) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.norange"));
+                        return;
+                    }
+                    int radius = Integer.parseInt(argString[1]);
+                    if (radius < 1) {
+                        radius = 0;
+                    }
+                    if (radius > 16) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
+                        radius = 16;
+                    }
+
+                    int x = (int) player.posX ;
+                    int y = (int) player.posY ;
+                    int z = (int) player.posZ ;
+
+                    List<TileEntity> e = new ArrayList<TileEntity>();
+                    for (int block_x = x - radius; block_x < x + radius; block_x++) {
+                        for (int block_y = y - radius; block_y < y + radius; block_y++) {
+                            for (int block_z = z - radius; block_z < z + radius; block_z++) {
+                                TileEntity te = world.getTileEntity(block_x, block_y, block_z);
+                                if (Objects.nonNull(te)) {
+                                    e.add(te);
+                                }
+                            }
+                        }
+                    }
+
+                    if (e.size() > 0) {
+                        for (Object obj : e) {
+                            TileEntity te = (TileEntity) obj;
+                            sender.addChatMessage(new ChatComponentTranslation(String.format("TileEntityInfo: %s Block: %s (%s) Metadata: %s",
+                                    te.getClass().getSimpleName(),
+                                    te.getBlockType().getUnlocalizedName(),
+                                    te.getBlockType().getLocalizedName()),
+                                    te.blockMetadata));
+                            sender.addChatMessage(new ChatComponentTranslation("Class: " + te.getClass().getName() + ",  x:" + te.xCoord + " y:" + te.yCoord + " z:" + te.zCoord));
+                            NBTTagCompound nbtData = new NBTTagCompound();
+                            te.writeToNBT(nbtData);
+                            sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                        }
                     }
                 }
                 return;
@@ -151,6 +295,30 @@ public class AdminToolsCommands extends CommandBase
                 return;
             }
 
+            if (argString[0].equals("restoreplayer")) {
+
+                if (argString.length < 2) {
+                    sender.addChatMessage(new ChatComponentTranslation("restoreplayer.noname"));
+                    return;
+                }
+
+                String playername = argString[1];
+                for (WorldServer worldServer : MinecraftServer.getServer().worldServers) {
+                    for (Object obj :  worldServer.playerEntities) {
+                        EntityPlayerMP player = (EntityPlayerMP) obj;
+                        if (player.getDisplayName().toLowerCase().startsWith(playername.toLowerCase())) {
+                            EntityPlayerMP targetPlayer = player;
+                            targetPlayer.setHealth(targetPlayer.getMaxHealth());
+                            targetPlayer.setAbsorptionAmount(0);
+                            targetPlayer.heal(targetPlayer.getMaxHealth());
+                        }
+                    }
+                }
+
+                sender.addChatMessage(new ChatComponentTranslation("restoreplayer.done"));
+                return;
+            }
+
             if (argString[0].equals("chunkregen")) {
                 if (sender instanceof EntityPlayer) {
                     EntityPlayer player = (EntityPlayer) sender;
@@ -190,12 +358,61 @@ public class AdminToolsCommands extends CommandBase
 
                         oldChunk.isTerrainPopulated = false;
                         chunkProviderGenerate.populate(chunkProviderGenerate, oldChunk.xPosition, oldChunk.zPosition);
+                        oldChunk.needsSaving(true);
                         sender.addChatMessage(new ChatComponentTranslation("chunkregen.done"));
                     } catch (Exception e) {
                         sender.addChatMessage(new ChatComponentTranslation("chunkregen.error"));
                         e.printStackTrace();
                     }
                 }
+                return;
+            }
+
+            if (argString[0].equals("iteminfo")) {
+
+                if (!(sender instanceof EntityPlayer)) {
+                    return;
+                }
+
+                EntityPlayer player = (EntityPlayer) sender;
+                ItemStack is = player.getHeldItem();
+
+                if (Objects.isNull(is)) {
+                    return;
+                }
+
+                String name1 = "Unknown";
+                try {
+                    name1 = is.getUnlocalizedName();
+                } catch (NoClassDefFoundError e) {
+                    System.out.println("Error while getUnlocalizedName(), itemstack: " + is);
+                }
+                String name2 = "Unknown";
+                try {
+                    name2 = is.getDisplayName();
+                } catch (NoClassDefFoundError e) {
+                    System.out.println("Error while getDisplayNameVb(), itemstack: " + is);
+                }
+                int id = Item.getIdFromItem(is.getItem());
+                int data = is.getItem().getDamage(is);
+
+                sender.addChatMessage(new ChatComponentTranslation(String.format("ItemInfo: %s (%s) (#%s:%s)", name2, name1, id, data)));
+                sender.addChatMessage(new ChatComponentTranslation(String.format("Count: %s", is.stackSize)));
+                sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", is.stackTagCompound)));
+
+                return;
+            }
+
+            if (argString[0].equals("time")) {
+
+                WorldServer worldServer = (WorldServer) world;
+
+                sender.addChatMessage(new ChatComponentText(String.format(
+                        "```" +
+                                getWeatherString(worldServer) + ". " +
+                                getTimeString(worldServer) + "." +
+                                "```"
+                )));
                 return;
             }
 
@@ -206,14 +423,23 @@ public class AdminToolsCommands extends CommandBase
                 sender.addChatMessage(new ChatComponentText(String.format(
                                 "```" +
                                         getWeatherString(worldServer) + ". " +
-                                        getTimeString(worldServer) + ". " +
-                                        "Вот что случилось за последнее время: " +
-                                        getEventString() +
-                                        "при этом из травмпункта сообщают что " +
-                                        getDeathString() +
-                                        "и никто не знает, что случится в следующую минуту. " +
-                                        "Спасибо что обратились в наш информационный центр, свои предложения вы можете оставить по адресу https://ordinary-minecraft.ru/ " +
-                                        "а вот жалобы лучше не оставляйте нигде. Хорошего вам дня!" +
+                                        getTimeString(worldServer) + "\n\n" +
+                                        "..." + getEventString() + "\n\n" +
+                                        "..." + getDeathString() +
+                        "```"
+                )));
+                return;
+            }
+
+            if (argString[0].equals("stat")) {
+
+                sender.addChatMessage(new ChatComponentText(String.format(
+                        "```" +
+                                "Вот что случилось за последнее время: " +
+                                getAllEventsString() +
+                                "при этом из травмпункта сообщают что " +
+                                getAllDeathsString() +
+                                "и никто не знает, что случится в следующую минуту." +
                                 "```"
                 )));
                 return;
@@ -222,6 +448,29 @@ public class AdminToolsCommands extends CommandBase
     }
 
     public static String getEventString() {
+        if (AdminTools.handler.playerMobsMap.entrySet().size() == 0) {
+            return "пока ничего не произошло.";
+        }
+        try {
+            int number = random.nextInt(AdminTools.handler.playerMobsMap.entrySet().size());
+            Map.Entry entry = (Map.Entry) AdminTools.handler.playerMobsMap.entrySet().toArray()[number];
+            Map<String, Integer> mobsMap = (Map<String, Integer>) entry.getValue();
+            number = random.nextInt(mobsMap.entrySet().size());
+            Map.Entry mobEntry = (Map.Entry) mobsMap.entrySet().toArray()[number];
+
+            String playerString = (String) entry.getKey();
+            String actionString = getRandomKillWord() + " " + mobEntry.getValue() + " " + mobEntry.getKey();
+
+            actionString = processStringNames(actionString, playerString);
+
+            return String.format(getRandomActionPhrase(), playerString, actionString);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Ошибка!";
+        }
+    }
+
+    public static String getAllEventsString() {
         String string = "";
         for (Map.Entry entry : AdminTools.handler.playerMobsMap.entrySet()) {
             Map<String, Integer> mobsMap = (Map<String, Integer>) entry.getValue();
@@ -237,6 +486,47 @@ public class AdminToolsCommands extends CommandBase
     }
 
     public static String getDeathString() {
+        if (AdminTools.handler.deathMap.entrySet().size() == 0) {
+            return "пока никто не умер.";
+        }
+        try {
+            int number = random.nextInt(AdminTools.handler.deathMap.entrySet().size());
+            Map.Entry entry = (Map.Entry) AdminTools.handler.deathMap.entrySet().toArray()[number];
+
+            String playerString = (String) entry.getKey();
+            String countString = ((Integer) entry.getValue()).toString();
+            String actionString = getRandomDeathWord();
+
+            actionString = processStringNames(actionString, playerString);
+
+            return String.format(getRandomDeathPhrase(), playerString, actionString, countString);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Ошибка!";
+        }
+    }
+
+    private static String processStringNames(String actionString, String playerString) {
+        if ("tetster".equals(playerString)) {
+            actionString = "дюпал";
+        }
+
+        if ("zagrizer".equals(playerString)) {
+            actionString = "ругался матом";
+        }
+
+        if ("Morgana".equals(playerString)) {
+            actionString = "просила поставить Pam's Harvestcraft";
+        }
+
+        if ("DenPrime".equals(playerString)) {
+            actionString = "ругал сервер легаси";
+        }
+
+        return actionString;
+    }
+
+    public static String getAllDeathsString() {
         String string = "";
         for (Map.Entry entry : AdminTools.handler.deathMap.entrySet()) {
             string = string + entry.getKey() + " " + getRandomDeathWord() + " " + entry.getValue() + " раз, ";
@@ -247,52 +537,130 @@ public class AdminToolsCommands extends CommandBase
         return string;
     }
 
+    public static String getRandomActionPhrase() {
+        int number = randomBetween(0, actionPhrases.size() - 1);
+        return actionPhrases.get(number);
+    }
+
+    public static String getRandomDeathPhrase() {
+        int number = randomBetween(0, deathPhrases.size() - 1);
+        return deathPhrases.get(number);
+    }
+
     public static String getRandomKillWord() {
-        int number = random.nextInt(11);
-        switch (number) {
-            case 0:
-                return "побил";
-            case 1:
-                return "разбил лицо";
-            case 2:
-                return "уничтожил";
-            case 3:
-                return "разобрал на части";
-            case 4:
-                return "разрубил на куски";
-            case 5:
-                return "очистил мир от";
-            case 6:
-                return "решил разобраться с";
-            case 7:
-                return "вступил в пьяную драку с";
-            case 8:
-                return "испепелил взглядом";
-            case 9:
-                return "испачкал меч кровью";
-            case 10:
-                return "пошел в лес и нарубил там";
-            case 11:
-                return "вынес";
-            default:
-                return "убил";
-        }
+        int number = randomBetween(0, killWords.size() - 1);
+        return killWords.get(number);
     }
 
     public static String getRandomDeathWord() {
-        int number = random.nextInt(3);
-        switch (number) {
-            case 0:
-                return "помер";
-            case 1:
-                return "распрощался с жизнью";
-            case 2:
-                return "отправился на тот свет";
-            case 3:
-                return "покинул этот мир";
-            default:
-                return "умер";
-        }
+        int number = randomBetween(0, deathWords.size() - 1);
+        return deathWords.get(number);
+    }
+
+    private static List<String> actionPhrases = Arrays.asList(
+            "русалочья скала все так же прекрасна, даже несмотря на то что %s возле нее %s.",
+            "таверна была бы не таверной, если бы %s не %s после очередной кружки эля.",
+            "тихие воды Залива Мечей все еще помнят %s, который громко ругаясь %s.",
+            "%s опять %s.",
+            "что не день то праздник! %s сегодня %s. А вы?",
+            "каждому необходимо вымещать на ком-то свою злость. Вот и  %s %s.",
+            "%s %s за то что те мешали ему убивать ворон возле мельницы.",
+            "%s %s проходя очередной данж.",
+            "сервер сегодня так сильно лагал потому что %s опять %s.",
+            "если бы %s не %s то сегодня случился бы конец света. Восхвалим же его!",
+            "как и вчера, %s %s.",
+            "%s всегда отличался мягким характером, но несмотря на это %s.",
+            "прогуливаясь по 6 кругу ада, %s решил что здесь недостаточно жарко, после чего %s",
+            "решив отдохнуть после долгого отдыха, %s %s",
+            "вспомнив о том, что пора бы уже спасти мир %s решительно %s",
+            "надышавшись собственной глупостью, %s %s",
+            "после открытия в себе неземных сил %s не долго думая %s",
+            "решив доблестью покорить мир %s пришел на рыцарский турнир где %s",
+            "вспоминая былые деньки и победы, %s со скрипом %s",
+            "шагая бодрым шагом по Эйренморскому лесу, %s внезапно для себя %s",
+            "ваши поединки на арене ничто по сравнению с тем как %s %s"
+    );
+
+    private static List<String> deathPhrases = Arrays.asList(
+            "невезучий %s гуляя по лесу %s %s раз.",
+            "%s решил пойти на арену, результате чего %s %s раз.",
+            "данж - это всегда приключение. Вот и %s так решил. Если бы после этого он не %s %s раз то думал бы так до сих пор.",
+            "%s за последнее время %s %s раз.",
+            "%s вроде бы не новичок, но %s %s раз.",
+            "%s %s %s раз. Плохой выдался день.",
+            "у всех бывает плохое настроение. Но не до такой же степени! %s сегодня %s %s раз.",
+            "%s %s %s раз проходя очередной данж.",
+            "не нужно винить лаги в том что %s %s за последнее время %s раз!",
+            "драконы прилетают редко, но %s все равно %s %s раз.",
+            "как и вчера, %s %s. %s раз.",
+            "поговаривают что мир Эйренмора не так уж и опасен для странников, но %s все равно %s %s раз.",
+            "море волнуется раз. море волнуется два. %s %s три.",
+            "сегодня %s %s. Аж %s раз.",
+            "%s %s %s раз, при этом каждый раз произнося какое-то заклинание. Кажется, оно заканчивалось на \"...ять\"",
+            "обрыв Тролля это очень опасное место. Не зря %s там %s %s раз."
+    );
+
+    private static List<String> killWords = Arrays.asList(
+            "побил",
+            "разбил лицо",
+            "уничтожил",
+            "разобрал на части",
+            "разрубил на куски",
+            "очистил мир от",
+            "решил разобраться с",
+            "вступил в пьяную драку с",
+            "испепелил взглядом",
+            "испачкал меч кровью",
+            "пошел в лес и нарубил там",
+            "покрошил на салат",
+            "устроил кару небесную",
+            "отправил в могилу",
+            "победил в поединке с",
+            "помог отбросить копыта",
+            "расщепил на атомы",
+            "вынес",
+            "превратил в пепел",
+            "аннигилировал",
+            "отправил к праотцам",
+            "замариновал",
+            "снял скальп с",
+            "загрыз",
+            "украл душу у",
+            "стер с лица земли",
+            "отутюжил",
+            "вскрыл череп",
+            "отправил возрождаться",
+            "устроил диалог с небом для",
+            "прибил",
+            "кинул с прогиба",
+            "разрубил пополам",
+            "выпотрошил"
+    );
+
+    private static List<String> deathWords = Arrays.asList(
+            "помер",
+            "распрощался с жизнью",
+            "отправился на тот свет",
+            "покинул этот мир",
+            "респавнился",
+            "увидел свет в конце тоннеля",
+            "умер",
+            "был побежден",
+            "попрощался c этим миром",
+            "ушел на покой",
+            "отбросил копыта",
+            "улетел на небо",
+            "свалился в ад",
+            "покинул грешную землю",
+            "отставил бренный мир",
+            "отправился к праотцам",
+            "встретился с богами",
+            "перешел не на тот свет",
+            "умудрился умереть"
+    );
+
+    public static int randomBetween(int min, int max) {
+        return random.nextInt((max - min) + 1) + min;
     }
 
     public static String getTimeString(World world) {

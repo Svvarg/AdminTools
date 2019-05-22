@@ -1,6 +1,7 @@
 package ru.flametaichou.admintools;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -26,7 +27,7 @@ public class ATEventHandler {
 
         } else if (Objects.nonNull(event.source.getEntity()) && event.source.getEntity() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) event.source.getEntity();
-            if (event.entityLiving instanceof EntityMob) {
+            if (event.entityLiving instanceof EntityLiving) {
                 String mobName = event.entityLiving.getCommandSenderName();
 
                 if (Objects.isNull(playerMobsMap.get(player.getDisplayName()))) {

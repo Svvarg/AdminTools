@@ -9,3 +9,6 @@ chestclear.done=Выполнено. Найдено и %d контейнеров.
 
 chunkregen.done=Регенерация чанка выполнена.
 chunkregen.error=При регенерации чанка произошла ошибка!
+
+restoreplayer.noname=Игрок восстановлен.
+restoreplayer.done=Не указано имя игрока.
