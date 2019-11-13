@@ -20,6 +20,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.StringUtils;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
@@ -58,7 +59,7 @@ public class AdminToolsCommands extends CommandBase
     @Override         
     public String getCommandUsage(ICommandSender var1) 
     { 
-        return "/atools <mobclear/chestclear/restoreplayer/mobfind>";
+        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo>";
     } 
 
     @Override 
@@ -73,7 +74,7 @@ public class AdminToolsCommands extends CommandBase
     
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/admin <mobclear (mob, range) / chestclear (range) / restoreplayer / mobfind (mob, range)>"));
+                sender.addChatMessage(new ChatComponentText("/admin <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo>"));
                 return;
             }
             if (argString[0].equals("mobclear")) {
@@ -103,6 +104,11 @@ public class AdminToolsCommands extends CommandBase
                             EntityLiving entityLiving = (EntityLiving) obj;
                             if (entityLiving.getClass().getName().toLowerCase().contains(mobname.toLowerCase())) {
                                 entityLiving.setDead();
+                                entityLiving.worldObj.removeEntity(entityLiving);
+                                entityLiving.worldObj.onEntityRemoved(entityLiving);
+                                WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entityLiving.worldObj);
+                                worldManager.onEntityDestroy(entityLiving);
+
                                 count++;
                             }
                         }
@@ -138,6 +144,91 @@ public class AdminToolsCommands extends CommandBase
                             EntityLiving entityLiving = (EntityLiving) obj;
                             if (entityLiving.getClass().getName().toLowerCase().contains(mobname.toLowerCase())) {
                                 sender.addChatMessage(new ChatComponentTranslation(entityLiving.getClass().getName() + " - x:" + entityLiving.posX + " y:" + entityLiving.posY + " z:" + entityLiving.posZ));
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (argString[0].equals("findte")) {
+                if (sender instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) sender;
+                    if (argString.length < 2) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.noname"));
+                        return;
+                    }
+                    String mobname = argString[1];
+                    if (argString.length < 3) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.norange"));
+                        return;
+                    }
+                    int radius = Integer.parseInt(argString[2]);
+                    if (radius < 1) {
+                        radius = 0;
+                    }
+                    if (radius > 200) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
+                        radius = 200;
+                    }
+
+                    int x = (int) player.posX ;
+                    int y = (int) player.posY ;
+                    int z = (int) player.posZ ;
+                    List<TileEntity> e = new ArrayList<TileEntity>();
+                    for (int block_x = x - radius; block_x < x + radius; block_x++) {
+                        for (int block_y = y - radius; block_y < y + radius; block_y++) {
+                            for (int block_z = z - radius; block_z < z + radius; block_z++) {
+                                TileEntity te = world.getTileEntity(block_x, block_y, block_z);
+                                if (Objects.nonNull(te)) {
+                                    e.add(te);
+                                }
+                            }
+                        }
+                    }
+
+                    if (e.size() > 0) {
+                        for (Object obj : e) {
+                            TileEntity tileEntity = (TileEntity) obj;
+                            if (tileEntity.getClass().getName().toLowerCase().contains(mobname.toLowerCase())) {
+                                sender.addChatMessage(new ChatComponentTranslation(tileEntity.getClass().getName() + " - x:" + tileEntity.xCoord + " y:" + tileEntity.yCoord + " z:" + tileEntity.zCoord));
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (argString[0].equals("findblock")) {
+                if (sender instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) sender;
+                    if (argString.length < 2) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.noname"));
+                        return;
+                    }
+                    String mobname = argString[1];
+                    if (argString.length < 3) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.norange"));
+                        return;
+                    }
+                    int radius = Integer.parseInt(argString[2]);
+                    if (radius < 1) {
+                        radius = 0;
+                    }
+                    if (radius > 200) {
+                        sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
+                        radius = 200;
+                    }
+                    int x = (int) player.posX ;
+                    int y = (int) player.posY ;
+                    int z = (int) player.posZ ;
+                    for (int block_x = x - radius; block_x < x + radius; block_x++) {
+                        for (int block_y = y - radius; block_y < y + radius; block_y++) {
+                            for (int block_z = z - radius; block_z < z + radius; block_z++) {
+                                Block b = world.getBlock(block_x, block_y, block_z);
+                                if (Objects.nonNull(b) && b.getUnlocalizedName().toLowerCase().contains(mobname.toLowerCase())) {
+                                    sender.addChatMessage(new ChatComponentTranslation(b.getClass().getName() + " - x:" + block_x + " y:" + block_y + " z:" + block_z));
+                                }
                             }
                         }
                     }
@@ -237,8 +328,8 @@ public class AdminToolsCommands extends CommandBase
                             sender.addChatMessage(new ChatComponentTranslation(String.format("TileEntityInfo: %s Block: %s (%s) Metadata: %s",
                                     te.getClass().getSimpleName(),
                                     te.getBlockType().getUnlocalizedName(),
-                                    te.getBlockType().getLocalizedName()),
-                                    te.blockMetadata));
+                                    te.getBlockType().getLocalizedName(),
+                                    String.valueOf(te.blockMetadata))));
                             sender.addChatMessage(new ChatComponentTranslation("Class: " + te.getClass().getName() + ",  x:" + te.xCoord + " y:" + te.yCoord + " z:" + te.zCoord));
                             NBTTagCompound nbtData = new NBTTagCompound();
                             te.writeToNBT(nbtData);
