@@ -1,8 +1,7 @@
-package ru.flametaichou.admintools;
+package ru.flametaichou.admintools.handlers;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 
@@ -10,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class ATEventHandler {
+public class EntityEventHandler {
 
     Map<String, Map<String, Integer>> playerMobsMap = new HashMap<String, Map<String, Integer>>();
     Map<String, Integer> deathMap = new HashMap<String, Integer>();

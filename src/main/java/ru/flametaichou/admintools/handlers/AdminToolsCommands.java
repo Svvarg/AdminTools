@@ -1,4 +1,4 @@
-package ru.flametaichou.admintools;
+package ru.flametaichou.admintools.handlers;
 
 import java.util.*;
 
@@ -26,6 +26,8 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.ChunkProviderServer;
 import org.lwjgl.Sys;
+import ru.flametaichou.admintools.AdminTools;
+import ru.flametaichou.admintools.ConfigHelper;
 
 public class AdminToolsCommands extends CommandBase
 { 
@@ -59,7 +61,7 @@ public class AdminToolsCommands extends CommandBase
     @Override         
     public String getCommandUsage(ICommandSender var1) 
     { 
-        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo>";
+        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage>";
     } 
 
     @Override 
@@ -74,7 +76,7 @@ public class AdminToolsCommands extends CommandBase
     
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/admin <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo>"));
+                sender.addChatMessage(new ChatComponentText("/atools <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo / automessage (reload)>"));
                 return;
             }
             if (argString[0].equals("mobclear")) {
@@ -534,6 +536,18 @@ public class AdminToolsCommands extends CommandBase
                                 "```"
                 )));
                 return;
+            }
+
+            if (argString[0].equals("automessage")) {
+                if (argString.length == 1) {
+                    sender.addChatMessage(new ChatComponentText("/atools automessage reload"));
+                    return;
+                }
+
+                if (argString[1].equals("reload")) {
+                    ConfigHelper.reloadConfig();
+                    sender.addChatMessage(new ChatComponentTranslation("automessage.reload.done"));
+                }
             }
         }
     }

@@ -1,0 +1,62 @@
+package ru.flametaichou.admintools;
+
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
+
+public class ConfigHelper {
+
+    private static Configuration configuration;
+
+    public static boolean automessageEnabled;
+    public static int automessageInterval;
+    public static String[] automessageStrings;
+
+    public static void setupConfig(Configuration config) {
+        if (configuration == null) {
+            configuration = config;
+        }
+        try {
+            config.load();
+            automessageEnabled = config.getBoolean("AutomessageEnabled", "Automessage", false, "Enable automatic messages for players?");
+            automessageInterval = config.getInt("AutomessageInterval", "Automessage", 600, 1,99999,"Automatic messages interval (in seconds).");
+            automessageStrings = config.getStringList(
+                    "AutomessageStrings",
+                    "Automessage",
+                    new String[]{
+                            "&2Hint: &fthis is a first hint.",
+                            "&2Hint: &fthis is a second hint.",
+                            "&2Hint: &fthis is a third hint."
+                    },
+                    "Automatic messages list.");
+        } catch (Exception e) {
+            System.out.println("A severe error has occured when attempting to load the config file for this mod!");
+        } finally {
+            if (config.hasChanged()) {
+                config.save();
+            }
+        }
+    }
+
+    public static void addMessage(String message) {
+        Property prop = configuration.get("Automessage", "AutomessageStrings", new String[]{});
+        String[] newValue = new String[automessageStrings.length + 1];
+        for (int i = 0; i < automessageStrings.length; i++) {
+            newValue[i] = automessageStrings[i];
+        }
+        newValue[automessageStrings.length] = message;
+        prop.set(newValue);
+        configuration.save();
+        automessageStrings = newValue;
+    }
+
+    public static void reloadConfig() {
+        try {
+            configuration.load();
+            automessageEnabled = configuration.getBoolean("AutomessageEnabled", "Automessage", false, "Enable automatic messages for players?");
+            automessageInterval = configuration.getInt("AutomessageInterval", "Automessage", 600, 1,99999,"Automatic messages interval (in seconds).");
+            automessageStrings = configuration.getStringList("AutomessageStrings", "Automessage", new String[]{}, "Automatic messages list.");
+        } catch (Exception e) {
+            System.out.println("Error on reloading config: " + e.getMessage());
+        }
+    }
+}

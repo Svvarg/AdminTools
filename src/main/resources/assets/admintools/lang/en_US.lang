@@ -12,3 +12,5 @@ chunkregen.error=Error occurred while chunk regeneration!
 
 restoreplayer.noname=Player restored.
 restoreplayer.done=Player name not defined.
+
+automessage.reload.done=Config reloaded
