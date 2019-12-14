@@ -1,4 +1,4 @@
-package ru.flametaichou.admintools;
+package ru.flametaichou.admintools.util;
 
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
@@ -6,6 +6,8 @@ import net.minecraftforge.common.config.Property;
 public class ConfigHelper {
 
     private static Configuration configuration;
+
+    public static boolean debugMode = false;
 
     public static boolean automessageEnabled;
     public static int automessageInterval;
@@ -29,7 +31,7 @@ public class ConfigHelper {
                     },
                     "Automatic messages list.");
         } catch (Exception e) {
-            System.out.println("A severe error has occured when attempting to load the config file for this mod!");
+            Logger.error("Error on loadinc config: " + e.getMessage());
         } finally {
             if (config.hasChanged()) {
                 config.save();
@@ -56,7 +58,7 @@ public class ConfigHelper {
             automessageInterval = configuration.getInt("AutomessageInterval", "Automessage", 600, 1,99999,"Automatic messages interval (in seconds).");
             automessageStrings = configuration.getStringList("AutomessageStrings", "Automessage", new String[]{}, "Automatic messages list.");
         } catch (Exception e) {
-            System.out.println("Error on reloading config: " + e.getMessage());
+            Logger.error("Error on reloading config: " + e.getMessage());
         }
     }
 }

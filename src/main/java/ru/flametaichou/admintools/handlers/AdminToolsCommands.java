@@ -25,9 +25,9 @@ import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.ChunkProviderServer;
-import org.lwjgl.Sys;
 import ru.flametaichou.admintools.AdminTools;
-import ru.flametaichou.admintools.ConfigHelper;
+import ru.flametaichou.admintools.util.ConfigHelper;
+import ru.flametaichou.admintools.util.Logger;
 
 public class AdminToolsCommands extends CommandBase
 { 
@@ -478,13 +478,13 @@ public class AdminToolsCommands extends CommandBase
                 try {
                     name1 = is.getUnlocalizedName();
                 } catch (NoClassDefFoundError e) {
-                    System.out.println("Error while getUnlocalizedName(), itemstack: " + is);
+                    Logger.error("Error while getUnlocalizedName(), itemstack: " + is);
                 }
                 String name2 = "Unknown";
                 try {
                     name2 = is.getDisplayName();
                 } catch (NoClassDefFoundError e) {
-                    System.out.println("Error while getDisplayNameVb(), itemstack: " + is);
+                    Logger.error("Error while getDisplayNameVb(), itemstack: " + is);
                 }
                 int id = Item.getIdFromItem(is.getItem());
                 int data = is.getItem().getDamage(is);
