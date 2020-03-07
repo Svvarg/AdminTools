@@ -15,7 +15,7 @@ import java.util.Random;
 
 public class ServerEventHandler {
 
-    private static final String linkString = "\",{\"text\":\"&9&n{LINK}&f\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"Открыть ссылку\",\"color\":\"aqua\"}},\"clickEvent\":{\"action\":\"open_url\",\"value\":\"{LINK}\"}},\"";
+    private static final String linkString = "\",{\"text\":\"{LINK}\",\"color\":\"blue\",\"underlined\":\"true\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"Открыть ссылку\",\"color\":\"aqua\"}},\"clickEvent\":{\"action\":\"open_url\",\"value\":\"{LINK}\"}},\"";
 
     private long lastAutomessageTime = 0;
     private static Random random = new Random();
@@ -32,6 +32,7 @@ public class ServerEventHandler {
 
                     message = ConfigHelper.automessageStrings[messageNum];
 
+                    message = message.replace("\"", "\\\"");
                     List<String> links = findLinks(message);
                     for (String link : links) {
                         message = message.replace(link, linkString.replace("{LINK}", link));

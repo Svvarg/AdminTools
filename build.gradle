@@ -1,6 +1,9 @@
 buildscript {
     repositories {
-        mavenCentral()
+        maven {
+            name = "maven"
+            url = "https://repo1.maven.org/maven2"
+        }
         maven {
             name = "forge"
             url = "http://files.minecraftforge.net/maven"
@@ -17,7 +20,7 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = "1.3"
+version = "0.2"
 group= "ru.flametaichou.admintools" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "admintools"
 
