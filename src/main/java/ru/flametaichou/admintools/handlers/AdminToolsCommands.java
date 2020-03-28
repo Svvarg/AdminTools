@@ -1,5 +1,7 @@
 package ru.flametaichou.admintools.handlers;
 
+import java.io.IOException;
+import java.net.*;
 import java.util.*;
 
 import net.minecraft.block.Block;
@@ -25,6 +27,7 @@ import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.ChunkProviderServer;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import ru.flametaichou.admintools.AdminTools;
 import ru.flametaichou.admintools.util.ConfigHelper;
 import ru.flametaichou.admintools.util.Logger;
@@ -506,6 +509,40 @@ public class AdminToolsCommands extends CommandBase
                                 getTimeString(worldServer) + "." +
                                 "```"
                 )));
+                return;
+            }
+
+            if (argString[0].equals("ping")) {
+
+                String address = "www.google.com";
+                Socket s = new Socket();
+                try {
+                    SocketAddress a = new InetSocketAddress(address, 80);
+                    int timeoutMillis = 2000;
+                    long start = System.currentTimeMillis();
+                    s.connect(a, timeoutMillis);
+                    long stop = System.currentTimeMillis();
+                    long latency = stop - start;
+
+                    sender.addChatMessage(new ChatComponentText(String.format(
+                            "```" +
+                                    "Пинг " + address + ": задержка " + latency + "мс." +
+                                    "```"
+                    )));
+                } catch (Exception e) {
+                    sender.addChatMessage(new ChatComponentText(String.format(
+                            "```" +
+                                    "Пинг " + address + ": Ошибка!" +
+                                    "```"
+                    )));
+                } finally {
+                    try {
+                        s.close();
+                    } catch (IOException e) {
+                        Logger.error("Error on closing socket: " + ExceptionUtils.getRootCauseMessage(e));
+                    }
+                }
+
                 return;
             }
 
