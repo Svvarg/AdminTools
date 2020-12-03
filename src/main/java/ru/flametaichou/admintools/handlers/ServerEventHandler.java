@@ -12,36 +12,38 @@ import ru.flametaichou.admintools.util.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import static net.minecraft.util.StringUtils.isNullOrEmpty;
 
 public class ServerEventHandler {
 
     private static final String linkString = "\",{\"text\":\"{LINK}\",\"color\":\"blue\",\"underlined\":\"true\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"Открыть ссылку\",\"color\":\"aqua\"}},\"clickEvent\":{\"action\":\"open_url\",\"value\":\"{LINK}\"}},\"";
 
-    private long lastAutomessageTime = 0;
+    private long nextAutomessageTime = 0;
     private static Random random = new Random();
+    /*list of messages prepared for display in the chat*/
+    public final List<String> automessagesList = new ArrayList<String>();
+
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.side == Side.SERVER) {
-            if (MinecraftServer.getSystemTimeMillis() - lastAutomessageTime > ConfigHelper.automessageInterval * 1000) {
+            if ( MinecraftServer.getSystemTimeMillis() > nextAutomessageTime) {
                 String message = "";
                 try {
-                    lastAutomessageTime = MinecraftServer.getSystemTimeMillis();
+                    /* setting the time when the next message will appear */
+                    nextAutomessageTime = MinecraftServer.getSystemTimeMillis() + ConfigHelper.automessageInterval * 1000;
 
-                    int messageNum = randomBetween(0, ConfigHelper.automessageStrings.length - 1);
+                    if (this.automessagesList != null && !automessagesList.isEmpty()) {
 
-                    message = ConfigHelper.automessageStrings[messageNum];
+                        int messageNum = randomBetween(0, automessagesList.size() - 1);
 
-                    message = message.replace("\"", "\\\"");
-                    List<String> links = findLinks(message);
-                    for (String link : links) {
-                        message = message.replace(link, linkString.replace("{LINK}", link));
+                        message = automessagesList.get(messageNum);
+                        if (!isNullOrEmpty(message)) {
+                            IChatComponent component = IChatComponent.Serializer.func_150699_a(StatCollector.translateToLocal(message));
+                            MinecraftServer.getServer().getConfigurationManager().sendChatMsg(component);
+                        }
                     }
-                    message = "[\"" + message + "\"]";
-                    message = message.replace("&", "§");
 
-                    IChatComponent component = IChatComponent.Serializer.func_150699_a(StatCollector.translateToLocal(message));
-                    MinecraftServer.getServer().getConfigurationManager().sendChatMsg(component);
                 } catch (Exception e) {
                     Logger.error("Error on sending automessage: " + e.getMessage());
                     Logger.error("Message text: " + message);
@@ -50,7 +52,67 @@ public class ServerEventHandler {
         }
     }
 
-    private List<String> findLinks(String message) {
+    /**
+     * Convert the specified messages from the config to those prepared for
+     * display in the chat on a timer
+     * @param originalMessages
+     * @return number of successfully converted messages
+     */
+    public int setChatFormatAutomessages(String[] originalMessages) {
+        this.automessagesList.clear();
+
+        if (originalMessages == null || originalMessages.length == 0) {
+            return 0;
+        }
+
+        int sz = originalMessages.length;
+        for (int i = 0; i < sz; i++) {
+            String original = originalMessages[i];
+            addMessageToAutomessageList(original);
+        }
+
+        return this.automessagesList.size();//sucess converted messages
+    }
+
+    /**
+     * Add one new message to the list displayed in the chat
+     * @param original
+     * @return
+     */
+    public boolean addMessageToAutomessageList(String original) {
+        if (!isNullOrEmpty(original)) {
+            String converted = convertMessage(original);
+            if (!isNullOrEmpty(converted)) {
+                this.automessagesList.add(converted);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Converting the original message from the config to the chat format
+     * @param original
+     * @return
+     */
+    public String convertMessage(String original) {
+        String message = "";
+        try {
+            message = original.replace("\"", "\\\"");
+            List<String> links = findLinks(message);
+            for (String link : links) {
+                message = message.replace(link, linkString.replace("{LINK}", link));
+            }
+            message = "[\"" + message + "\"]";
+            message = message.replace("&", "§");
+        } catch (Exception e) {
+            Logger.error("Error on convert automessage: " + e.getMessage());
+            Logger.error("Message text: " + message + " Original: " + original);
+        }
+        return message;
+    }
+
+    private static List<String> findLinks(String message) {
         List<Integer> linkPositions = new ArrayList<Integer>();
 
         List<String> links = new ArrayList<String>();

@@ -2,6 +2,7 @@ package ru.flametaichou.admintools.util;
 
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
+import ru.flametaichou.admintools.AdminTools;
 
 public class ConfigHelper {
 
@@ -37,6 +38,12 @@ public class ConfigHelper {
                 config.save();
             }
         }
+        try {
+            AdminTools.serverEventHandler.setChatFormatAutomessages(automessageStrings);
+        }
+        catch (Exception e) {
+            Logger.error("On Convert Messages from config to ChatFormat " + e.getMessage());
+        }
     }
 
     public static void addMessage(String message) {
@@ -49,6 +56,7 @@ public class ConfigHelper {
         prop.set(newValue);
         configuration.save();
         automessageStrings = newValue;
+        AdminTools.serverEventHandler.addMessageToAutomessageList(message);
     }
 
     public static void reloadConfig() {
@@ -57,6 +65,7 @@ public class ConfigHelper {
             automessageEnabled = configuration.getBoolean("AutomessageEnabled", "Automessage", false, "Enable automatic messages for players?");
             automessageInterval = configuration.getInt("AutomessageInterval", "Automessage", 600, 1,99999,"Automatic messages interval (in seconds).");
             automessageStrings = configuration.getStringList("AutomessageStrings", "Automessage", new String[]{}, "Automatic messages list.");
+            AdminTools.serverEventHandler.setChatFormatAutomessages(automessageStrings);
         } catch (Exception e) {
             Logger.error("Error on reloading config: " + e.getMessage());
         }
