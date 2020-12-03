@@ -33,50 +33,50 @@ import ru.flametaichou.admintools.util.ConfigHelper;
 import ru.flametaichou.admintools.util.Logger;
 
 public class AdminToolsCommands extends CommandBase
-{ 
+{
     private final List<String> aliases;
     private final static Random random = new Random();
-  
+
     public AdminToolsCommands()
-    { 
-        aliases = new ArrayList<String>(); 
+    {
+        aliases = new ArrayList<String>();
         aliases.add("atools");
-    } 
-  
+    }
+
     @Override
     public int getRequiredPermissionLevel()
     {
         return 0;
     }
-    
-    @Override 
+
+    @Override
     public int compareTo(Object o)
-    { 
-        return 0; 
-    } 
+    {
+        return 0;
+    }
 
-    @Override 
-    public String getCommandName() 
-    { 
+    @Override
+    public String getCommandName()
+    {
         return "atools";
-    } 
+    }
 
-    @Override         
-    public String getCommandUsage(ICommandSender var1) 
-    { 
+    @Override
+    public String getCommandUsage(ICommandSender var1)
+    {
         return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage>";
-    } 
+    }
 
-    @Override 
-    public List<String> getCommandAliases() 
-    { 
+    @Override
+    public List<String> getCommandAliases()
+    {
         return this.aliases;
-    } 
+    }
 
-    @Override 
+    @Override
     public void processCommand(ICommandSender sender, String[] argString) {
-        World world = sender.getEntityWorld(); 
-    
+        World world = sender.getEntityWorld();
+
         if (!world.isRemote) {
             if (argString.length == 0) {
                 sender.addChatMessage(new ChatComponentText("/atools <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo / automessage (reload)>"));
@@ -268,26 +268,26 @@ public class AdminToolsCommands extends CommandBase
                             if (obj instanceof EntityLiving) {
                                 EntityLiving entityLiving = (EntityLiving) obj;
                                 String type = "EntityLiving";
-                                sender.addChatMessage(new ChatComponentTranslation(String.format("EntityInfo: %s (%s) (#%s) Type: %s",
+                                sender.addChatMessage(new ChatComponentText(String.format("EntityInfo: %s (%s) (#%s) Type: %s",
                                         entityLiving.getCommandSenderName(),
                                         entityLiving.getCustomNameTag(),
                                         entityLiving.getEntityId(),
                                         type)));
-                                sender.addChatMessage(new ChatComponentTranslation("Class: " + entityLiving.getClass().getName() + ", posision x:" + entityLiving.posX + " y:" + entityLiving.posY + " z:" + entityLiving.posZ));
+                                sender.addChatMessage(new ChatComponentText("Class: " + entityLiving.getClass().getName() + ", posision x:" + entityLiving.posX + " y:" + entityLiving.posY + " z:" + entityLiving.posZ));
                                 NBTTagCompound nbtData = new NBTTagCompound();
                                 entityLiving.writeEntityToNBT(nbtData);
-                                sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                                sender.addChatMessage(new ChatComponentText(String.format("NBT: %s", nbtData)));
                             } else {
                                 Entity entity = (Entity) obj;
                                 String type = "Entity";
-                                sender.addChatMessage(new ChatComponentTranslation(String.format("EntityInfo: %s (#%s) Type: %s",
+                                sender.addChatMessage(new ChatComponentText(String.format("EntityInfo: %s (#%s) Type: %s",
                                         entity.getCommandSenderName(),
                                         entity.getEntityId(),
                                         type)));
-                                sender.addChatMessage(new ChatComponentTranslation("Class: " + entity.getClass().getName() + ", posision x:" + entity.posX + " y:" + entity.posY + " z:" + entity.posZ));
+                                sender.addChatMessage(new ChatComponentText("Class: " + entity.getClass().getName() + ", posision x:" + entity.posX + " y:" + entity.posY + " z:" + entity.posZ));
                                 NBTTagCompound nbtData = new NBTTagCompound();
                                 entity.writeToNBT(nbtData);
-                                sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                                sender.addChatMessage(new ChatComponentText(String.format("NBT: %s", nbtData)));
                             }
                         }
                     }
@@ -306,9 +306,13 @@ public class AdminToolsCommands extends CommandBase
                     if (radius < 1) {
                         radius = 0;
                     }
+
+                    /*flag to search TileEntities only in the sender's chunk*/
+                    boolean onlyInOneChunk = argString.length > 2 && argString[2].equals("-chunk");
+
                     if (radius > 16) {
                         sender.addChatMessage(new ChatComponentTranslation("mobclear.range50"));
-                        radius = 16;
+                        radius = onlyInOneChunk ? 32 : /*Area*/16;
                     }
 
                     int x = (int) player.posX ;
@@ -316,30 +320,59 @@ public class AdminToolsCommands extends CommandBase
                     int z = (int) player.posZ ;
 
                     List<TileEntity> e = new ArrayList<TileEntity>();
-                    for (int block_x = x - radius; block_x < x + radius; block_x++) {
-                        for (int block_y = y - radius; block_y < y + radius; block_y++) {
-                            for (int block_z = z - radius; block_z < z + radius; block_z++) {
-                                TileEntity te = world.getTileEntity(block_x, block_y, block_z);
-                                if (Objects.nonNull(te)) {
-                                    e.add(te);
+
+                    //[CHUNK]Search TE only in player chunk with distance limit by Y Coord
+                    if (onlyInOneChunk) {
+                            int cx = player.chunkCoordX;
+                            int cz = player.chunkCoordZ;
+                            Chunk chunk = ((EntityPlayer) sender).worldObj.getChunkProvider().provideChunk(cx, cz);
+                            if (chunk != null) {
+                                Map teMap = chunk.chunkTileEntityMap;
+                                if (teMap != null && !teMap.isEmpty()) {
+                                    Iterator iter = teMap.values().iterator();
+                                    while (iter.hasNext()) {
+                                        Object obj = iter.next();
+                                        if (obj instanceof TileEntity) {
+                                            TileEntity te = (TileEntity) obj;
+                                            int distance = Math.abs(te.yCoord - y);
+                                            if (distance <= radius) {
+                                                e.add(te);
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
+                    }
+                    //[AREA]Search TE by radius from player Coords as center
+                    else {
+                            for (int block_x = x - radius; block_x < x + radius; block_x++) {
+                                for (int block_y = y - radius; block_y < y + radius; block_y++) {
+                                    for (int block_z = z - radius; block_z < z + radius; block_z++) {
+                                        TileEntity te = world.getTileEntity(block_x, block_y, block_z);
+                                        if (Objects.nonNull(te)) {
+                                            e.add(te);
+                                        }
+                                    }
+                                }
+                            }
                     }
 
                     if (e.size() > 0) {
                         for (Object obj : e) {
                             TileEntity te = (TileEntity) obj;
-                            sender.addChatMessage(new ChatComponentTranslation(String.format("TileEntityInfo: %s Block: %s (%s) Metadata: %s",
+                            /*Used a ChatComponentText instead of a chatComponentTranslation here because the latter can cause crashes*/
+                            sender.addChatMessage(new ChatComponentText(String.format("TileEntityInfo: %s Block: %s (%s) Metadata: %s",
                                     te.getClass().getSimpleName(),
                                     te.getBlockType().getUnlocalizedName(),
                                     te.getBlockType().getLocalizedName(),
                                     String.valueOf(te.blockMetadata))));
-                            sender.addChatMessage(new ChatComponentTranslation("Class: " + te.getClass().getName() + ",  x:" + te.xCoord + " y:" + te.yCoord + " z:" + te.zCoord));
+                            sender.addChatMessage(new ChatComponentText("Class: " + te.getClass().getName() + ",  x:" + te.xCoord + " y:" + te.yCoord + " z:" + te.zCoord));
                             NBTTagCompound nbtData = new NBTTagCompound();
                             te.writeToNBT(nbtData);
-                            sender.addChatMessage(new ChatComponentTranslation(String.format("NBT: %s", nbtData)));
+                            sender.addChatMessage(new ChatComponentText(String.format("NBT: %s", nbtData)));
                         }
+                    } else {
+                        sender.addChatMessage(new ChatComponentText("Not found any TileEntities"));
                     }
                 }
                 return;
@@ -835,21 +868,21 @@ public class AdminToolsCommands extends CommandBase
         return (int)((float)time / 1000F);
     }
 
-    @Override 
-    public boolean canCommandSenderUseCommand(ICommandSender var1) 
-    { 
+    @Override
+    public boolean canCommandSenderUseCommand(ICommandSender var1)
+    {
         return true;
-    } 
+    }
 
-    @Override  
-    public List<?> addTabCompletionOptions(ICommandSender var1, String[] var2) 
-    { 
-        return null; 
-    } 
+    @Override
+    public List<?> addTabCompletionOptions(ICommandSender var1, String[] var2)
+    {
+        return null;
+    }
 
-    @Override 
-    public boolean isUsernameIndex(String[] var1, int var2) 
-    { 
+    @Override
+    public boolean isUsernameIndex(String[] var1, int var2)
+    {
         return false;
     }
 }
