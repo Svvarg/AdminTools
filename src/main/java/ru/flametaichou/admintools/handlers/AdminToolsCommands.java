@@ -369,7 +369,7 @@ public class AdminToolsCommands extends CommandBase
                             sender.addChatMessage(new ChatComponentText("Class: " + te.getClass().getName() + ",  x:" + te.xCoord + " y:" + te.yCoord + " z:" + te.zCoord));
                             NBTTagCompound nbtData = new NBTTagCompound();
                             te.writeToNBT(nbtData);
-                            sender.addChatMessage(new ChatComponentText(String.format("NBT: %s", nbtData)));
+                            sender.addChatMessage(new ChatComponentText("NBT: " + nbtData));
                         }
                     } else {
                         sender.addChatMessage(new ChatComponentText("Not found any TileEntities"));
