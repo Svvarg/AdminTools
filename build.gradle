@@ -20,7 +20,7 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = "0.2"
+version = "0.2.1"
 group= "ru.flametaichou.admintools" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "admintools"
 

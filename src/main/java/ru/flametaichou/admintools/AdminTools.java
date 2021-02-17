@@ -12,7 +12,7 @@ import ru.flametaichou.admintools.handlers.EntityEventHandler;
 import ru.flametaichou.admintools.handlers.ServerEventHandler;
 import ru.flametaichou.admintools.util.ConfigHelper;
 
-@Mod (modid = "admintools", name = "Admin Tools", version = "0.2", acceptableRemoteVersions = "*")
+@Mod (modid = "admintools", name = "Admin Tools", version = "0.2.1", acceptableRemoteVersions = "*")
 
 public class AdminTools {
 

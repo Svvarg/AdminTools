@@ -1,9 +1,11 @@
 package ru.flametaichou.admintools.handlers;
 
-import java.io.IOException;
 import java.net.*;
 import java.util.*;
+import java.io.IOException;
+import java.lang.reflect.Field;
 
+import com.mojang.authlib.GameProfile;
 import net.minecraft.block.Block;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
@@ -14,6 +16,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
@@ -28,14 +31,18 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.ChunkProviderServer;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.swarg.mc.tools.XPlayer;
 import ru.flametaichou.admintools.AdminTools;
 import ru.flametaichou.admintools.util.ConfigHelper;
 import ru.flametaichou.admintools.util.Logger;
+import net.minecraftforge.common.IExtendedEntityProperties;
+import static net.minecraft.util.StringUtils.isNullOrEmpty;
 
 public class AdminToolsCommands extends CommandBase
 {
     private final List<String> aliases;
     private final static Random random = new Random();
+    private String lastOpenedInventoryPlayerName;
 
     public AdminToolsCommands()
     {
@@ -64,7 +71,7 @@ public class AdminToolsCommands extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender var1)
     {
-        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage>";
+        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage/player-props/player-custom-data/get-inventory/set-inventory/item-scanner>";
     }
 
     @Override
@@ -79,7 +86,8 @@ public class AdminToolsCommands extends CommandBase
 
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/atools <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo / automessage (reload)>"));
+                sender.addChatMessage(new ChatComponentText("/atools <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo / automessage (reload)"+
+                        " / player-props / player-custom-data / get-inventory /set-inventory / item-scanner>"));
                 return;
             }
             if (argString[0].equals("mobclear")) {
@@ -545,6 +553,28 @@ public class AdminToolsCommands extends CommandBase
                 return;
             }
 
+            final String cmd = argString[0];
+            if (isCmd(cmd, "player-props", "pp")) {
+                cmdExtendedPlayerProps(sender, argString);
+            }
+            //customEntityData
+            else if (isCmd(cmd, "player-custom-data", "pcd")) {
+                cmdPlayerCustomData(sender, argString);
+            }
+            else if (isCmd(cmd, "player-uuid", "pu")) {
+                cmdPlayerUUID(sender, argString);
+            }
+            else if (isCmd(cmd, "get-inventory", "gi")) {
+                cmdGetInventory(sender, argString);
+            }
+            else if (isCmd(cmd, "set-inventory", "si")) {
+                cmdSaveInventoryToOwner(sender, argString);//save
+            }
+            else if (isCmd(cmd, "item-scanner", "isc")) {
+                org.swarg.mc.tools.ItemScanWorker.instance().cmdItemScanner(sender, argString);
+            }
+
+
             if (argString[0].equals("ping")) {
 
                 String address = "www.google.com";
@@ -885,4 +915,344 @@ public class AdminToolsCommands extends CommandBase
     {
         return false;
     }
+
+    //========================================================================\\
+
+    //todo?? eco without EntityPlayer Instance for case than dataread from disc
+    private void cmdExtendedPlayerProps(ICommandSender sender, String[] args) {
+        int i = 1;
+        String response = "?";
+        final String name = arg(args,i++);
+        if (isNullOrEmpty(name) || "help".equals(name)) {
+            response = "(playername) (extPropName | <list>)";
+        } else {
+            EntityPlayer player = MinecraftServer.getServer().getConfigurationManager().func_152612_a(name);//online
+            if (player == null) {
+                player = XPlayer.getEntityPlayerMPFromDisk(name);//offline
+                if (player != null) {
+                    toSender(sender, "Taken from hdd");
+                }
+            }
+            if (player == null) {
+                response = "Not found: " + name;
+            } else {
+                final String prop = arg(args,i++);//i < sz ? args[i++] : null;
+
+                if (isNullOrEmpty(prop) || "list".equals(prop) || "ls".equals(prop)) {
+                    try {
+                        Field field = Entity.class.getDeclaredField("extendedProperties");
+                        Map<String, IExtendedEntityProperties> map = null;
+                        if (field != null) {
+                            field.setAccessible(true);
+                            map = (Map<String, IExtendedEntityProperties>)field.get(player);
+                        }
+                        if (map != null && map.size() > 0) {
+                            StringBuilder sb = new StringBuilder("--- ExtendedProperties[").append( name ).append("] ---\n");
+                            for (String key : map.keySet()) {
+                                sb.append(key).append("; ");
+                            }
+                            response = sb.toString();
+                        } else {
+                            response = "no extendedProperties in " + name;
+                        }
+                    }
+                    catch (Exception e) {
+                    }
+                } else if (!isNullOrEmpty(prop)) {
+                    IExtendedEntityProperties eep = player.getExtendedProperties(prop);
+                    if (eep == null) {
+                        response = "Not Found: " + prop;
+                    } else {
+                        NBTTagCompound nbt = new NBTTagCompound();
+                        eep.saveNBTData(nbt);
+                        response = nbt.toString();
+                    }
+                }
+            }
+        }
+        toSender(sender, response);
+    }
+
+    /**
+     * Entity.customEntityData
+     * Например ТФК в данном НБТ хранит расширенные слоты инвентаря
+     * @param sender
+     * @param args
+     */
+    private void cmdPlayerCustomData(ICommandSender sender, String[] args) {
+        int i = 1;
+        String response = "?";
+        final String name = arg(args,i++);
+        if (isNullOrEmpty(name) || isCmd(name, "help", "h")) {
+            response = "(playername) (customEntityDataTag | <list>)";
+        }
+        else {
+            EntityPlayer player = MinecraftServer.getServer().getConfigurationManager().func_152612_a(name);//online
+            NBTTagCompound customEntityData = player != null ? player.getEntityData() : null;
+            if (customEntityData == null) {
+                NBTTagCompound data = XPlayer.getPlayerNbtData(name, false);//online & offline;
+                //player = XPlayer.getEntityPlayerMPFromDisk(name);//offline
+                if (data != null) {
+                    customEntityData = data.getCompoundTag("ForgeData");
+                    toSender(sender, "Data Taken from hdd");
+                }
+            }
+
+            if (customEntityData == null) {
+                response = "Not found for " + name;
+            }
+            else {
+                if (customEntityData.func_150296_c().size() == 0) {
+                    response = "CustomEntityData for "+ name + " is Empty";
+                }
+                else {
+                    final String tagName = arg(args,i++);
+                    //list of root tag in nbt CustomEntityData
+                    if ("list".equals(tagName) || "ls".equals(tagName)) {
+                        Set set = customEntityData.func_150296_c();
+                        StringBuilder sb = new StringBuilder();
+                        for (Object obj: set) {
+                            sb.append(obj).append("; ");
+                        }
+                        response = sb.toString();
+                    }
+                    else if (!isNullOrEmpty(tagName)) {
+                        NBTBase b = customEntityData.getTag(tagName);
+                        if (b == null) {
+                            response = "Not Found: " + tagName;
+                        } else {
+                            String act = arg(args, i++);
+                            if ("remove".equals(act)|| "rm".equals(act)) {
+                                customEntityData.removeTag(tagName);
+                                response = "Changes saved:" + XPlayer.savePlayerDataToDisk(player);
+                            }
+                            //view
+                            else {
+                                response = b.toString();
+                            }
+                        }
+                    }
+                    else {
+                        response = customEntityData.toString();
+                    }
+                }
+            }
+        }
+        toSender(sender, response);
+    }
+
+
+
+    /**
+     * Offline!
+     * Получить стандартный и расширенный инвентарь заданного offline-игрока
+     * и сделать его копию поместив в оператора либо если команда из консоли
+     * -вывести текстовой отчёт содержимого инвентаря заданного игрока
+     * Для сохранения изменений используй save-inventory
+     * @param sender
+     * @param args
+     */
+    public void cmdGetInventory(ICommandSender sender, String[] args) {
+        this.lastOpenedInventoryPlayerName = null;//?
+        int i = 1;
+        String otherName = arg(args, i++);
+        String response = null;
+        if (isNullOrEmpty(otherName) || isCmd(otherName, "help", "h")) {
+            response = "(playername) [-text]";
+            //-text - флаг для player-op для возможность получить текстовое содержимое инвентаря другого игрока
+            //по умолчанию копирует всё содержимое инвентаря указанного игрока в инвентарь оператора(только если он у него пустой(Защита))
+        }
+        else {
+            EntityPlayerMP other = XPlayer.getEntityPlayerMPFromDisk(otherName);//offline
+            if (other == null) {
+                response = "Not found player " + otherName;
+            } else {
+                final boolean rawText = "-text".equals(arg(args, i)) && i++ > 0;
+                //GUI for op-player
+                if (!rawText && sender instanceof EntityPlayerMP) {
+                    //gui
+                    EntityPlayerMP opPlayer = (EntityPlayerMP)sender;
+                    if (XPlayer.isOpWithEmptyInventory(opPlayer)) {
+                        /*DEBUG*/String invClass = opPlayer.inventory.getClass().getName();
+                        //нужна синхронизация с контейнером оператора
+                        //перенос кастомной даты другого игрока на оператора
+                        //для синхронизации расширенных инвентарей
+                        //чтобы вернуть себе прошлое состояние нужно после изучения нужного игрока
+                        //"натянуть на себя" сохраненные на диске свои же данные atools oi <свое-же-имя>
+                        //тут только может быть тонкость если например север сохранит данные игрока на диск...
+                        XPlayer.copyInvenotryAndCustomData(other, opPlayer, true);
+                        /*DEFENSE*/lastOpenedInventoryPlayerName = other.getCommandSenderName();//защита от выстрела в ногу - замены ced-данных от оператора к игроку
+                        ((EntityPlayerMP)opPlayer).sendContainerToPlayer(other.inventoryContainer);//?
+                        response = "This is inventory of the player: " + otherName + " (" + invClass + ")";
+                    }
+                    //or not op or not empty inventory
+                    else {
+                        response = "only for op with empty inventory";
+                    }
+                }
+                //cmd from console RawText instead GUI   [-text]
+                else {//atools item-scanner player-inv (name)
+                    //text list
+                    net.minecraft.entity.player.InventoryPlayer invp = other.inventory;
+                    final int szmi = invp.mainInventory == null ? 0 : invp.mainInventory.length;
+                    final int szai = invp.armorInventory == null ? 0 : invp.armorInventory.length;
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("---------[").append(otherName).append("]---------\n");
+                    sb.append(" = MAIN INVENTORY [").append(szmi).append("] =\n");
+                    appendAItemStack(sb, other.inventory.mainInventory);
+                    sb.append(" = ARMOR INVENTORY [").append(szai).append("] =\n");
+                    appendAItemStack(sb, other.inventory.armorInventory);
+                    //Container не сохраняется на диск только инвентари + customEntityData
+                    //расширеные инвентари модов могут сохранятся в Entity.customEntityData (например так слот бочки в тфк)
+                    sb.append("To inspect extended inventory use cmd 'player-custom-data'");
+                    response = sb.toString();                        
+                }
+            }
+        }
+        toSender(sender, response);
+    }
+
+    /**
+     * Сохранение инвентаря оператора и CustomEntityData указанному offline-игроку
+     * с защитой от случайного изменения CustomEntityData у игрока на данные
+     * от оперетора когда перед сохранение ced-данные небыли получены от игрока
+     * @param sender
+     * @param args
+     */
+    private void cmdSaveInventoryToOwner(ICommandSender sender, String[] args) {
+        int i = 1;
+        String otherName = arg(args, i++);//имя offline-игрока которому будет сохранён инвентарь оператора
+        String response = null;
+        if (isNullOrEmpty(otherName) || isCmd(otherName, "help", "h")) {
+            response = "(playername) [-ced]";
+            //-ced - CustomEntityData переносить от оператора игроку так же и ced-данные
+        }
+        /*Defense CustomEntityData + случайное сохранение не тому игроку
+        проверка того чтобы случайно не перенести данные от оператора к игроку
+        в случае когда перед данной командой не был "взят" инвентарь от игрока
+        которому сейчас пытаются сохранить изменения*/
+        else if (!otherName.equals(this.lastOpenedInventoryPlayerName)) {
+            //сохранить инвентарь от оператора другому игроку можно только когда ранее был открыт инвентарь именно этого игрока.
+            response = "[Defense] The current op-inventory is not a copy of the player for which the save command is specified ["+lastOpenedInventoryPlayerName+"]";
+        }
+        else {
+            EntityPlayer onlinePlayer = MinecraftServer.getServer().getConfigurationManager().func_152612_a(otherName);
+            if (onlinePlayer != null) {
+                response = "Can not save inventory - the Player " + otherName + " is online!"; //use invsee
+            } 
+            else {
+                EntityPlayerMP other = XPlayer.getEntityPlayerMPFromDisk(otherName);//offline
+                if (other == null) {
+                    response = "Not found player " + otherName;
+                }
+                else {
+                    if (sender instanceof EntityPlayerMP) {
+                        EntityPlayerMP opPlayer = (EntityPlayerMP)sender;
+                        final boolean copyCed = "-ced".equalsIgnoreCase( arg(args,i++) );
+                        boolean copied = XPlayer.copyInvenotryAndCustomData(opPlayer, other, copyCed);
+                        boolean saved = copied && XPlayer.savePlayerDataToDisk(other);
+                        response = "Op: " + sender.getCommandSenderName() +
+                                " change&save inventory to " +
+                                other.getCommandSenderName() +
+                                " copyInv:" + (copied?'+':'-') +
+                                " saved:" + (saved?'+':'-') +
+                                (copyCed ? " [CustomEntityData]" : " [StandartInvOnly]");
+                        //copyCed - флаг того, что от оператора были перенесены ced-данные к игроку
+                        //todo в тфк расширенный инвентарь пишется в NBTListTag если так же и в других модах,
+                        //то можно поставить перенос только NBTListTag полей ced-данных
+                        Logger.log(response);
+                        /*защита от случаев когда был сохранен инвентарь его владельцу далее оператор
+                        делает clear своего инвентаря и по ошибке опять сохраняет "свой" пустой инвентарь владельцу*/
+                        this.lastOpenedInventoryPlayerName = null;
+                    } else {
+                        response = "only for op-player";
+                    }
+                }
+            }
+        }
+        toSender(sender, response);
+    }
+
+    //может быть полезно когда нужно отредактировать data-файл конкретного игрока - узнать имя файла UUID
+    public void cmdPlayerUUID(ICommandSender sender, String[] args) {
+        final String name = arg(args, 1);
+        String response = "?";
+        if (isNullOrEmpty(name) || "help".equals(name)) {
+            response = "(player-name)";
+        } else {
+            GameProfile gp = XPlayer.getPlayerGameProfile(name);//Online&Offline
+            /*Если задать имя не существующего на сервере профайла игрока генерируется
+            новый GameProfile в кэше для указанного имени!(но не на диске) поэтоу здесь
+            проверка реально ли существуют такой файл*/
+            if (gp != null && XPlayer.isExistGameProfile(gp)) {
+                response = "Name: " + gp.getName() + " ID: " + gp.getId().toString();
+            } else {
+                response = "Not Found for " + name;
+            }
+        }
+        toSender(sender, response);
+    }
+
+    //-----------------------------utils----------------------------------------
+    public static StringBuilder appendAItemStack(StringBuilder sb, ItemStack[] ais) {
+        if (sb != null && ais != null) {
+            final int sz = ais.length;
+            if (sz > 0) {
+                for (int j = 0; j < sz; j++) {
+                    appendItemStackShortInfo(sb, j, ais[j]);
+                }
+            } else {
+                sb.append("Empty\n");
+            }
+        }
+        return sb;
+    }
+
+    public static StringBuilder appendItemStackShortInfo(StringBuilder sb, int slot, ItemStack is) {
+        if (is != null && is.getItem() != null) {
+            final Item item = is.getItem();
+            final int itemId = Item.getIdFromItem(item);
+            sb.append("Slot: ").append(slot).append(" id #").append(itemId);//.append(":").append(is.getItemDamage());
+            final int damage = is.getItemDamage();
+            if (is.getHasSubtypes() || damage != 0) {
+                sb.append(":").append(damage);
+            }
+            if (is.stackSize != 1) {
+                sb.append(" x").append(is.stackSize);
+            }
+            if (is.hasTagCompound()) {
+                sb.append(" [NBT]");
+            }
+            sb.append('\n');
+        }
+        return sb;
+    }
+
+
+
+    //----------cmd4j-----------------------------------------------------------
+    public static boolean isCmd(String in, String cmd, String cmd2) {
+        return (!isNullOrEmpty(in)) && ( cmd != null && in.equalsIgnoreCase(cmd) || cmd2 != null && in.equalsIgnoreCase(cmd2) );
+    }
+
+    public static String arg(String[] args, int i) {
+        return args == null || i >= args.length ? null : args[i];
+    }
+    //--------------------------------------------------------------------------
+
+    //mclib
+    public void toSender(ICommandSender sender, String response) {
+        if (response != null && sender != null) {
+            if (response.contains("\n")) {
+                String[] a = response.split("\n");
+                for (int j = 0; j < a.length; j++) {
+                    sender.addChatMessage(new ChatComponentText(a[j]));
+                }
+            } else {
+                sender.addChatMessage(new ChatComponentText(response));
+            }
+        }
+    }
+
+
 }
