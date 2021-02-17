@@ -110,24 +110,60 @@ public class ItemScanWorker {
     public String addChunks(int worldDim, int cx1, int cz1, int cx2, int cz2) {
         int count = 0;
         this.worldDIM = worldDim; //todo check dim to secondary poly adding
+        boolean limited = false;
         if (cx1 == cx2 && cz1 == cz2) {
-            chanksQueue.add(new ChunkCoordIntPair(cx1, cz1));
-            count++;
+            ChunkCoordIntPair c = new ChunkCoordIntPair(cx1, cz1);
+            if (!chanksQueue.contains(c)) {
+                chanksQueue.add(c);
+                count++;
+            } else {
+                return "Alredy contains " + c;
+            }
         } else {
-            for (int cx = cx1; cx < cx2; cx++) {
-                for (int cz = cz1; cz < cz2; cz++) {
-                    ChunkCoordIntPair ccip = new ChunkCoordIntPair(cx,cz);
+            count = makePoly(cx1, cz1, cx2, cz2);
+            if (count > MAX_CHUNKS) {
+                limited = true;
+            }
+        }
+        return "DIM[" + worldDim + "] Added chunksCoords: " + count + " AllChunksQuequed: "+ this.chanksQueue.size() +
+                (limited ? " [LIMITED]" : "");
+    }
+
+    private int makePoly(int x1, int z1, int x2, int z2) {
+        int minX, maxX, minZ, maxZ;
+        if (x1 < x2) { minX = x1; maxX = x2;} else { minX = x2; maxX = x1;}
+        if (z1 < z2) { minZ = z1; maxZ = z2;} else { minZ = z2; maxZ = z1;}
+        int count = 0;
+        for (int cx = minX; cx <= maxX; cx++) {
+            for (int cz = minZ; cz <= maxZ; cz++) {
+                ChunkCoordIntPair ccip = new ChunkCoordIntPair(cx, cz);
+                if (!chanksQueue.contains(ccip)) {
                     chanksQueue.add(ccip);
                     count++;
-                    if (count > MAX_CHUNKS) {
-                        return "Limit "+ MAX_CHUNKS + " in cx:" + cx + " cz:" + cz;
-                    }
+                }
+                if (count > MAX_CHUNKS) {
+                    return count;//"Limit "+ MAX_CHUNKS + " in cx:" + cx + " cz:" + cz;
                 }
             }
         }
-        return "DIM[" + worldDim + "] Added chunksCoords: " + count + " AllChunksQuequed: "+ this.chanksQueue.size();
+        return count;
     }
 
+    private String makePoly() {
+        if (this.starttime == 0 && !this.running) {
+             if (this.chanksQueue.size() == 2) {
+                 //make
+                 ChunkCoordIntPair c1 = this.chanksQueue.get(0);
+                 ChunkCoordIntPair c2 = this.chanksQueue.get(1);
+                 final int added = this.makePoly(c1.chunkXPos, c1.chunkZPos, c2.chunkXPos, c2.chunkZPos);
+                 return "Chunks Quequed: " + added;
+             } else {
+                 return "need two chunk-coordinates poits. use 'add -here' first";
+             }
+        } else {
+            return "Not supported in runing time";
+        }
+    }
     
     public void subscribe(String name) {
         this.subscriber = name;
@@ -628,7 +664,7 @@ public class ItemScanWorker {
         final String cmd = i >= sz ? null : args[i++];
         String response = "?";
         if (isNullOrEmpty(cmd) || "help".equals(cmd)) {
-            response = "item-scanner <status/add/remove/chunks/start/stop/report/item-status/clear/check-item/player-inv/player-enderchest>";
+            response = "item-scanner <status/add/remove/make-poly/chunks/start/stop/report/item-status/clear/check-item/player-inv/player-enderchest>";
         }
         else if (isCmd(cmd, "status", "st")) {
             response = status();//LootTopWorker.instance().status()
@@ -656,6 +692,9 @@ public class ItemScanWorker {
                     }
                 }
             }
+        }
+        else if (isCmd(cmd, "make-poly", "mp")) {
+            response = this.makePoly();
         }
         else if (isCmd(cmd, "remove", "rm")) {
             response = "<remove> cx1 cz1 [cx2 cz2] | -here";
