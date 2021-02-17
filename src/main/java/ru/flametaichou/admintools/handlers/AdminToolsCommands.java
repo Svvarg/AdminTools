@@ -37,6 +37,7 @@ import ru.flametaichou.admintools.util.ConfigHelper;
 import ru.flametaichou.admintools.util.Logger;
 import net.minecraftforge.common.IExtendedEntityProperties;
 import static net.minecraft.util.StringUtils.isNullOrEmpty;
+import org.swarg.mc.tools.CustomTeleporter;
 
 public class AdminToolsCommands extends CommandBase
 {
@@ -71,7 +72,7 @@ public class AdminToolsCommands extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender var1)
     {
-        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage/player-props/player-custom-data/get-inventory/set-inventory/item-scanner>";
+        return "/atools <mobclear/chestclear/restoreplayer/chunkregen/mobfind/findte/findblock/entityinfo/tileentityinfo/iteminfo/automessage/player-props/player-custom-data/get-inventory/set-inventory/player-uuid/item-scanner>";
     }
 
     @Override
@@ -87,7 +88,9 @@ public class AdminToolsCommands extends CommandBase
         if (!world.isRemote) {
             if (argString.length == 0) {
                 sender.addChatMessage(new ChatComponentText("/atools <mobclear (mob, range) / chestclear (range) / restoreplayer / chunkregen / mobfind (mob, range) / findte (te, range)  / findblock (block, range)  / entityinfo (range) / tileentityinfo (range) / iteminfo / automessage (reload)"+
-                        " / player-props / player-custom-data / get-inventory /set-inventory / item-scanner>"));
+                        " / player-props / player-custom-data / player-uuid / get-inventory /set-inventory / item-scanner"
+                        +" / get-dimension / jump2dim"
+                        + ">"));
                 return;
             }
             if (argString[0].equals("mobclear")) {
@@ -553,6 +556,7 @@ public class AdminToolsCommands extends CommandBase
                 return;
             }
 
+            //------------------------------------------------------------------
             final String cmd = argString[0];
             if (isCmd(cmd, "player-props", "pp")) {
                 cmdExtendedPlayerProps(sender, argString);
@@ -573,6 +577,13 @@ public class AdminToolsCommands extends CommandBase
             else if (isCmd(cmd, "item-scanner", "isc")) {
                 org.swarg.mc.tools.ItemScanWorker.instance().cmdItemScanner(sender, argString);
             }
+            else if (isCmd(cmd, "get-dimension", "gd")) {
+                toSender(sender, "Your dimension:" + sender.getEntityWorld().provider.dimensionId);
+            }
+            else if (isCmd(cmd, "jump2dim", "j2d")) {
+                cmdJumpToDimension(sender, argString);
+            }
+            //------------------------------------------------------------------
 
 
             if (argString[0].equals("ping")) {
@@ -1184,11 +1195,65 @@ public class AdminToolsCommands extends CommandBase
             /*Если задать имя не существующего на сервере профайла игрока генерируется
             новый GameProfile в кэше для указанного имени!(но не на диске) поэтоу здесь
             проверка реально ли существуют такой файл*/
-            if (gp != null && XPlayer.isExistGameProfile(gp)) {
-                response = "Name: " + gp.getName() + " ID: " + gp.getId().toString();
+            if (gp != null) {
+                if (XPlayer.isExistGameProfile(gp)) {
+                    response = "Name: " + gp.getName() + " ID: " + gp.getId().toString();
+                } else {
+                    response = "Generated new GameProfile not Exists in hdd for Name: " + gp.getName() + " ID: " + gp.getId().toString();
+                }
             } else {
                 response = "Not Found for " + name;
             }
+        }
+        toSender(sender, response);
+    }
+
+    //changedimension
+    private void cmdJumpToDimension(ICommandSender sender, String[] args) {
+        int i = 1;
+        String response = "?";
+        if (sender instanceof EntityPlayerMP) {
+            String arg1 = arg(args,i++);
+            if (isNullOrEmpty(arg1) || "help".equalsIgnoreCase(arg1)) {
+                response = "(dimension)";
+            } else {
+                int dimension = Integer.parseInt( arg1 );
+                //todo x z 
+                EntityPlayerMP player = (EntityPlayerMP) sender;
+                if (player.dimension != dimension) {
+                    //int dim = player.dimension;
+                    MinecraftServer server = MinecraftServer.getServer();
+                    WorldServer world = server.worldServerForDimension(dimension);
+                    if (world != null) {
+                        //todo в уже загруженные чанки
+                        int posX = (int)player.posX;
+                        int posY = (int)player.posY;
+                        int posZ = (int)player.posZ;
+                        if (world.theChunkProviderServer.loadedChunks != null && world.theChunkProviderServer.loadedChunks.size()>0) {
+                            Chunk c = (Chunk)world.theChunkProviderServer.loadedChunks.get(0);
+                            if (c != null) {
+                                posX = c.xPosition * 16;
+                                posZ = c.zPosition * 16;
+                                toSender(sender, "jump to loaded chunk");
+                            }
+                        }
+                        player.setLocationAndAngles(posX, posY, posZ, player.rotationYaw, player.rotationPitch);
+                        server.getConfigurationManager().transferPlayerToDimension(player, dimension, new CustomTeleporter(world));
+                        player.playerNetServerHandler.setPlayerLocation(posX, posY, posZ, player.rotationYaw, player.rotationPitch);
+                        if (!world.playerEntities.contains(player)) {
+                            world.spawnEntityInWorld(player);
+                        }
+                        player.worldObj.updateEntityWithOptionalForce(player, false);
+                        response = "jumped to dimension: " + dimension;
+                    } else {
+                        response = "Dimenion does not exist";
+                    }
+                } else {
+                    response = "Already in defined dimension";
+                }
+            }
+        } else {
+            response = "only for op-player";
         }
         toSender(sender, response);
     }
@@ -1253,6 +1318,5 @@ public class AdminToolsCommands extends CommandBase
             }
         }
     }
-
 
 }
