@@ -1,4 +1,4 @@
-package org.swarg.mc.tools;
+package org.swarg.mcforge.util;
 
 import java.util.Objects;
 import java.util.Comparator;
@@ -10,7 +10,7 @@ import net.minecraft.item.ItemStack;
  * @author Swarg
  */
 public class ItemEntry {
-    private Item item;
+    private Item item; //todo int or short!
     private int meta; //HasSubtypes
     private boolean hasNbt;
     private final boolean immutable;
@@ -174,7 +174,7 @@ public class ItemEntry {
                 //String unlocname = item.getUnlocalizedName(new ItemStack(item, 1, meta));//todo opti
                 String unlocname = tmpItemStack == null
                         ? item.getUnlocalizedName() : item.getUnlocalizedName(tmpItemStack);
-                sb.append("  ").append(unlocname);
+                sb.append(' ').append(unlocname);
             }
         }
         return sb;

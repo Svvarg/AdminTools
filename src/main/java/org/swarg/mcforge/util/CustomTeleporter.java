@@ -1,4 +1,4 @@
-package org.swarg.mc.tools;
+package org.swarg.mcforge.util;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.world.Teleporter;

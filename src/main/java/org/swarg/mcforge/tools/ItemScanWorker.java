@@ -1,9 +1,8 @@
-package org.swarg.mc.tools;
+package org.swarg.mcforge.tools;
 
 import java.util.Map;
 import java.util.List;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.ArrayList;
 
 import cpw.mods.fml.relauncher.Side;
@@ -16,9 +15,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Item;
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.ChunkCoordIntPair;
@@ -26,6 +22,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.common.DimensionManager;
+import org.swarg.mcforge.util.ItemEntry;
+import org.swarg.mcforge.util.ItemsTop;
 import static net.minecraft.util.StringUtils.isNullOrEmpty;
 
 
@@ -46,10 +44,8 @@ public class ItemScanWorker {
     private int cursor;
     private int processedChunks;
     private int processedTiles;//InvenotryTiles
-    private int processedItemsFromNBT;//кол-во прочитанных из нбт предметов
-    //todo обработано предметов с ненулевым количеством
-    private Map<ItemEntry, ItemEntry> itemsMap = new HashMap<ItemEntry, ItemEntry>();
-    //optional inventory
+
+    private ItemsTop itemsMap = new ItemsTop();//
     private Map<Class, int[]> invTiles = new HashMap<Class, int[]>();
     private Map<Class, int[]> notInvTiles = new HashMap<Class, int[]>();
     private boolean collectTilesClasses = true;
@@ -69,16 +65,24 @@ public class ItemScanWorker {
         return INSTANCE;
     }
 
+//    public boolean isBusy() {
+//        return this.itemsMap.getItemsMap().size() > 0;
+//    }
+//
+//    public boolean isWork() {
+//        return this.starttime > 0 && this.running && this.donetime == 0;
+//    }
+
     public String status() {
         if (this.starttime == 0 && this.donetime == 0) {
             //first time
-            if (itemsMap.size() == 0 && starttime == 0 && cursor == 0) {
+            if (this.itemsMap.isEmpty() && starttime == 0 && cursor == 0) {
                 return "[PREPARE] QueuedChunks: " + this.chanksQueue.size();
             } 
             //errornes
             else {
                 return (this.running ? "[RUN]" : "[PAUSE]") +
-                        " UniqueItemsTypes Recognized: " + this.itemsMap.size() + " ChunksQueue: " + cursor + "/" + this.chanksQueue.size() +
+                        " UniqueItemsTypes Recognized: " + this.itemsMap.getItemsMap().size() + " ChunksQueue: " + cursor + "/" + this.chanksQueue.size() +
                      "\nProcessed: chunks: " + this.processedChunks+" tiles: " + this.processedTiles;
             }
         }
@@ -96,7 +100,7 @@ public class ItemScanWorker {
             final int remainedChunks = sz - cursor;
             sb.append(" World[").append( worldDIM ).append("] ");
             sb.append(" Chunks: Queued ").append(sz).append(" Remained:").append(remainedChunks);
-            sb.append(" top-item-size: ").append(itemsMap.size());
+            sb.append(" top-item-size: ").append(this.itemsMap.getItemsMap().size());
             sb.append(" processed-Tiles: ").append(processedTiles);
             sb.append(" processed-Chunks: ").append(processedChunks);
             return sb.toString();
@@ -214,7 +218,7 @@ public class ItemScanWorker {
     }
 
     private void init() {
-        this.itemsMap.clear();
+        this.itemsMap.clear();//this.itemsMap.clear();
         this.processedChunks = 0;
         this.processedTiles = 0;
         this.starttime = 0;
@@ -245,9 +249,10 @@ public class ItemScanWorker {
         this.donetime = 0;
         this.processedTiles = 0;
         this.processedChunks = 0;
-        this.processedItemsFromNBT = 0;
-        this.chanksQueue.clear();
+        //this.processedItemsFromNBT = 0;
         this.itemsMap.clear();
+        this.chanksQueue.clear();
+        //this.itemsMap.clear();
         this.invTiles.clear();
         this.notInvTiles.clear();
         this.subscriber = null;
@@ -258,37 +263,6 @@ public class ItemScanWorker {
         return "Cleaned";
     }
     
-    private StringBuilder sortAndFormatItems(StringBuilder sb, Object filter) {
-        int max = 0;
-        List<ItemEntry> list = new ArrayList<ItemEntry>(this.itemsMap.size());
-        for (ItemEntry entry : this.itemsMap.values()) {
-            //todo apply filter
-            list.add(entry);
-            if (entry.getCount() > max) {
-                max = entry.getCount();
-            }
-        }
-        list.sort(ItemEntry.COMPARE_COUNT_DESCENT);
-
-        //for unloc name
-        ItemStack tmpStack = new ItemStack(Item.getItemById(1), 1, 0);//???Experimental
-        //for format
-        final int maxDigitChars = Math.max(3, ItemEntry.getDigitCharsCountForNumber(max) + 1);
-
-        sb.append("Cnt #id:meta NBT UnlocalizeName\n");
-        for (int i = 0; i < list.size(); i++) {
-            ItemEntry entry = list.get(i);
-            /*хитрый способ без пересоздания инстансов это будет работать
-            корретно для большинства, но не для всех предметов.
-            Для передачи меты в метод выдающий полное unlocal-name для стака (напр.шерсть-цвет)*/
-            tmpStack.setItemDamage(entry.getMeta());//count #id:meta [NBT] UnlocalName
-            entry.appendTo(sb, maxDigitChars, true, tmpStack).append('\n'); //todo
-        }
-        if (this.processedItemsFromNBT > 0) {
-            sb.append("Items found in nbt: ").append(processedItemsFromNBT).append('\n');
-        }
-        return sb;
-    }
 
 
     public String report() {
@@ -304,7 +278,7 @@ public class ItemScanWorker {
                 sb.append("---------- Chunks[").append(this.chanksQueue.size()).append("] ------------\n");
                 sb.append("Spent Time: ").append(this.donetime - this.starttime).append("ms\n");
                 //------------------------------------
-                sortAndFormatItems(sb, /*filter*/null);
+                this.itemsMap.sortAndFormatItems(sb, /*filter*/null);
                 //------------------------------------
                 sb.append("Processed chunks: ").append(this.processedChunks);
                 sb.append(" InvTiles: ").append(this.processedTiles).append('\n');
@@ -390,7 +364,7 @@ public class ItemScanWorker {
                             TileEntity te = ((TileEntity)o);
                             if (!te.isInvalid()) {
                                 if (te instanceof IInventory) {
-                                    final int items = processInventory((IInventory)te);
+                                    final int items = this.itemsMap.processInventory((IInventory)te);
                                     this.processedTiles++;
                                     if (this.collectTilesClasses) {
                                         //--ext stat---
@@ -427,232 +401,6 @@ public class ItemScanWorker {
             }
         }
     }
-
-    public int processInventory(IInventory inv) {
-        int total = 0;
-        if (inv != null) {
-            final int sz = inv.getSizeInventory();
-            for (int i = 0; i < sz; i++) {
-                try {
-                    ItemStack is = inv.getStackInSlot(i);
-                    if (is != null && is.getItem() != null) {
-                        tmpItemEntry.set(is);
-                        total += updateItemsTop(tmpItemEntry);
-                        if (is.hasTagCompound()) {
-                            final int foundInNbt = processedItemStackNBT(is.stackTagCompound);
-                            processedItemsFromNBT += foundInNbt;
-                            total += foundInNbt;
-                        }
-                    }
-                }
-                catch (Throwable e) {
-                    /*DEBUG*/e.printStackTrace();
-                }
-            }
-        }
-        return total;
-    }
-
-    /**
-     * Ищет по обёртке данные для уникальной вещи
-     * если находит - инкремирует на текущее количество предметов
-     * если НЕ находит нужную запись - создаёт её в мапе на сонове копии
-     * текущего tmpUItem
-     * @param tmpUItem
-     * @return Возвращает количество предметов в стаке
-     */
-    public int updateItemsTop(ItemEntry tmpUItem) {
-        int count = tmpUItem.getCount();//is.stackSize;
-        if (count > 0) {
-            ItemEntry entry = this.itemsMap.get(tmpUItem);
-            if (entry == null) {
-                //если такой записи нет - её копия будет помещена в мапу
-                entry = tmpUItem.copy();
-                this.itemsMap.put(entry, entry);
-            } else {
-                entry.inc( count ); //is.stackSize
-            }
-        }
-        return count;
-    }
-
-    /**
-     * Поиск внутри nbt других предметов
-     * и помещение их в this.topmap + рекурсивный поиск внутри подтагов обнаруженых предметов
-     * @param nbt
-     */
-    public int processedItemStackNBT(NBTTagCompound nbt) {
-        if (nbt != null) {            
-            NBTTagList list = null;
-            NBTBase base = (NBTBase) nbt.getTag("Items");
-            if (base != null && base.getId() == (byte)9) {
-                list = (NBTTagList)base;
-            } else {
-            }
-            //todo если есть нбт проверить instnaceof NBTTagList? на структуру id-Count-Damage
-
-            if (list != null) {
-                int items = 0;
-                final int sz = list.tagCount();
-                for (int i = 0; i < sz; i++) {
-                    NBTTagCompound nbt0 = list.getCompoundTagAt(i);
-                    if (nbt0 != null) {
-                        items += ItemStack_readFromNBT(nbt0);
-                    }
-                }
-                return items;
-            }
-        }
-        return 0;
-    }
-    
-    public int ItemStack_readFromNBT(NBTTagCompound nbt) {
-        Short id = nbt.getShort("id");
-        if (id > 0) {
-            Item item = Item.getItemById(id); 
-            if (item != null) {
-                int stackSize = nbt.getByte("Count");
-                //проверить исчезнет ли предмет у которого количетсво - 0
-                //можно ли в таком хранить подпредметы ? в теге tag??
-                if (stackSize > 0) {
-                    int items = 0;
-                    //интересует только мета - если это не мета а урон - игнорировать(0)
-                    int meta = item.getHasSubtypes() ? nbt.getShort("Damage") : 0;
-                    if (meta < 0) {
-                        meta = 0;
-                    }
-                    final boolean hasNbt = nbt.hasKey("tag", 10);
-                    tmpItemEntry.set(item, meta, stackSize, hasNbt);
-                    items += updateItemsTop(tmpItemEntry);
-                    //can be tmpUItem.clear there
-
-                    if (hasNbt) {
-                        NBTTagCompound tag = nbt.getCompoundTag("tag");
-                        if (tag != null) {
-                            //recursive
-                            final int foundInNbt = processedItemStackNBT(tag);
-                            processedItemsFromNBT += foundInNbt;
-                            items += foundInNbt;
-                        }
-                    }
-                    return items;
-                }
-            }
-        }
-        return 0;
-    }
-    //============================= DEBUG-tools ================================
-    private String checkItem(ItemStack stack) {
-        if (stack != null) {
-            if (this.starttime == 0 && !this.running && this.itemsMap.isEmpty()) {
-                int items = 0;
-                this.starttime = System.currentTimeMillis();
-                tmpItemEntry.set(stack);
-                items += updateItemsTop(tmpItemEntry);
-                if (stack.hasTagCompound()) {
-                    items += processedItemStackNBT(stack.stackTagCompound);
-                }
-                this.donetime = System.currentTimeMillis();
-
-                final int maxDigitChars = ItemEntry.getDigitCharsCountForNumber(items) + 1;
-                StringBuilder sb = new StringBuilder("ItemStack: ");
-                tmpItemEntry.set(stack).appendTo(sb, maxDigitChars, true, null);//count #id:meta UnlocalName
-                sb.append(" Contains[").append(items).append("]:\n");
-                sortAndFormatItems(sb, null);//report();
-                clear();
-                return sb.toString();
-            }
-            else {
-                return "ItemScanWorker is busy";
-            }
-        }
-        return "?";
-    }
-    
-    private String playerInventory(String name) {
-        if (!isNullOrEmpty(name)) {
-            NBTTagCompound playerDataNbt = XPlayer.getPlayerNbtData(name, false);//from online & offline
-            if (playerDataNbt != null) {
-                NBTTagList list = playerDataNbt.getTagList("Inventory", 10);
-                final int sz = list == null ? 0 : list.tagCount();
-                int items = 0;
-                for (int i = 0; i < sz; i++) {
-                    NBTTagCompound nbt0 = list.getCompoundTagAt(i);
-                    if (nbt0 != null) {
-                        items += ItemStack_readFromNBT(nbt0);
-                    }
-                }
-                StringBuilder sb = new StringBuilder();
-                sb.append("--- Inventory of Player[").append(name).append("] Items[").append(items).append("] ---\n");
-                sortAndFormatItems(sb, null);
-                clear();
-
-                /*DEBUG*/System.out.println(playerDataNbt);
-                
-                if (playerDataNbt.hasKey("ForgeData")) {
-                    NBTTagCompound customEntityData = playerDataNbt.getCompoundTag("ForgeData");
-                    if (customEntityData != null) {
-                        sb.append("=== [CustomEntityData] ===\n");
-                        Iterator iter = customEntityData.func_150296_c().iterator();
-                        while (iter.hasNext()) {
-                            String tagName = (String) iter.next();
-                            NBTBase base = customEntityData.getTag(tagName);
-                            if (base instanceof NBTTagList) {
-                                NBTTagList list0 = (NBTTagList) base;
-                                final int sz0 = list0 == null ? 0 : list0.tagCount();
-                                if (sz > 0) {
-                                    for (int i = 0; i < sz0; i++) {
-                                        NBTTagCompound nbt0 = list0.getCompoundTagAt(i);
-                                        if (nbt0 != null) {
-                                            items += ItemStack_readFromNBT(nbt0);
-                                        }
-                                    }
-                                    sb.append("--- [").append(tagName).append("] Items[").append(items).append("]---\n");
-                                    sortAndFormatItems(sb, null);
-                                    clear();
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return sb.toString();
-            } else {
-                return "Not Found " + name;
-            }
-        } else
-            return "no name";
-    }
-    
-    private String playerEnderChest(String name) {
-        if (!isNullOrEmpty(name)) {
-            NBTTagCompound playerDataNbt = XPlayer.getPlayerNbtData(name, false);//from online & offline
-            if (playerDataNbt != null) {
-                if (playerDataNbt.hasKey("EnderItems", 9)) {
-                    NBTTagList list = playerDataNbt.getTagList("EnderItems", 10);
-                    final int sz = list == null ? 0 : list.tagCount();
-                    int items = 0;
-                    for (int i = 0; i < sz; i++) {
-                        NBTTagCompound nbt0 = list.getCompoundTagAt(i);
-                        if (nbt0 != null) {
-                            items += ItemStack_readFromNBT(nbt0);
-                        }
-                    }
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("--- EnderChest of Player[").append(name).append("] Items[").append(items).append("] ---\n");
-                    sortAndFormatItems(sb, null);
-                    clear();
-                    return sb.toString();
-                } else {
-                    return "Not Found EnderItem for " + name;
-                }
-            } else {
-                return "Not Found for" + name;
-            }
-        } else
-            return "no name";
-    }
-
 
 
 
@@ -750,7 +498,7 @@ public class ItemScanWorker {
                         response = "Not found Registered Item for id:" + itemId;
                     } else {
                         tmpItemEntry.set(item, meta, 0, hasNBT);
-                        ItemEntry entry = this.itemsMap.get(tmpItemEntry);
+                        ItemEntry entry = this.itemsMap.getItemsMap().get(tmpItemEntry);
                         if (entry == null) {
                             response = "Not Found ItemEntry in Map["+this.itemsMap.size()+"]";
                         } else {
@@ -765,7 +513,14 @@ public class ItemScanWorker {
         else if (isCmd(cmd, "check-item", "ci")) {
             if (sender instanceof EntityPlayer) {
                 ItemStack stack = ((EntityPlayer)sender).getHeldItem();
-                response = (stack == null) ? "take the item in hands" : this.checkItem(stack);
+                if (stack != null) {
+                    //todo внутри текущего инстанса а не нового по флагу
+                    ItemsTop it = new ItemsTop();
+                    response = it.processItemStack(stack);
+                    it.clear();
+                } else {
+                    response = "take the item in hands";
+                }
             } else {
                 response = "only for op-player";
             }
@@ -777,7 +532,9 @@ public class ItemScanWorker {
             if (isNullOrEmpty(name) || isCmd(name, "help", "h")) {
                 response = "player-inv (player-name)";
             } else {
-                response = this.playerInventory(name);
+                ItemsTop it = new ItemsTop();
+                response = it.playerInventory(name, null);
+                it.clear();
             }
         }
         else if (isCmd(cmd, "player-enderchest", "pec")) {
@@ -785,7 +542,9 @@ public class ItemScanWorker {
             if (isNullOrEmpty(name) || isCmd(name, "help", "h")) {
                 response = "player-inv (player-name)";
             } else {
-                response = this.playerEnderChest(name);
+                ItemsTop it = new ItemsTop();
+                response = it.playerEnderChest(name);
+                it.clear();
             }
         }
 

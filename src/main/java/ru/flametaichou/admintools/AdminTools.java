@@ -9,6 +9,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import ru.flametaichou.admintools.handlers.AdminToolsCommands;
 import ru.flametaichou.admintools.handlers.EntityEventHandler;
+import org.swarg.mcforge.tools.InventoryCommands;
 import ru.flametaichou.admintools.handlers.ServerEventHandler;
 import ru.flametaichou.admintools.util.ConfigHelper;
 
@@ -24,6 +25,7 @@ public class AdminTools {
 		MinecraftForge.EVENT_BUS.register(handler);
 		FMLCommonHandler.instance().bus().register(serverEventHandler);
 		event.registerServerCommand(new AdminToolsCommands());
+		event.registerServerCommand(new InventoryCommands());
 	}
 
 	@EventHandler
